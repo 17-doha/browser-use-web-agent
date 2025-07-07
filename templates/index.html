@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Test Case Dashboard</title>
+  <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-white p-4">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-center text-purple-800 mb-6">Praxilabs Testing AI Agent</h1>
+
+    <!-- Dashboard Stats -->
+    <div class="stats-container mb-6">
+      <div class="stat-card">
+        <span>Total Tests</span>
+        <span class="stat-value" id="totalTests">0</span>
+      </div>
+      <div class="stat-card">
+        <span>Successful</span>
+        <span class="stat-value success" id="successfulTests">0</span>
+      </div>
+      <div class="stat-card">
+        <span>Failed</span>
+        <span class="stat-value failed" id="failedTests">0</span>
+      </div>
+      <div class="stat-card">
+        <span>Categories</span>
+        <span class="stat-value" id="categories">0</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-container mb-6">
+      <button class="nav-button active" onclick="showSection('dashboard')">Dashboard</button>
+      <button class="nav-button" onclick="openModal('createModal')">Create Test</button>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard" class="dashboard-container">
+      <h2 class="dashboard-title">Test Case Dashboard</h2>
+      <div class="action-buttons">
+        <button class="action-button" onclick="exportPlaybook()">Export Playbook</button>
+        <button class="action-button new-test" onclick="openModal('createModal')">New Test Case</button>
+      </div>
+
+      <!-- Test Case Container -->
+      <div id="testCaseContainer"></div>
+
+      <!-- Latest Result -->
+      <div class="result-section">
+        <label>Latest Result:</label>
+        <div class="result-box" id="latestResult"></div>
+      </div>
+    </div>
+
+    <!-- Create Test Modal -->
+    <div id="createModal" class="modal">
+      <div class="modal-content">
+        <h2 class="dashboard-title">Create New Test Case</h2>
+        <div class="prompt-section">
+          <label>New Prompt:</label>
+          <input type="text" id="newPromptInput" class="prompt-input" placeholder="Enter new prompt" />
+          <button class="action-button" onclick="saveNewPrompt()">Save Test</button>
+          <button class="action-button" onclick="closeModal('createModal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="static/js/script.js"></script>
+</body>
+</html>
