@@ -32,7 +32,9 @@
 
     <!-- Navigation -->
     <div class="nav-container mb-6">
-      <button class="nav-button active" onclick="showSection('dashboard')">Dashboard</button>
+      <button class="nav-button active" onclick="showSection('dashboard', 'all')">Dashboard</button>
+      <button class="nav-button" onclick="showSection('dashboard', 'login')">Login Tests</button>
+      <button class="nav-button" onclick="showSection('dashboard', 'other')">Other Tests</button>
       <button class="nav-button" onclick="openModal('createModal')">Create Test</button>
     </div>
 
@@ -65,6 +67,11 @@
           <input type="text" id="newPasswordInput" class="prompt-input" placeholder="Enter Password" />
           <label>New Prompt:</label>
           <input type="text" id="newPromptInput" class="prompt-input" placeholder="Enter new prompt" />
+          <label>Test Category:</label>
+          <select id="testCategory" class="prompt-input">
+            <option value="login">Login Test</option>
+            <option value="other">Other Test</option>
+          </select>
     
           <button class="action-button" onclick="saveNewPrompt()">Save Test</button>
           <button class="action-button" onclick="closeModal('createModal')">Cancel</button>
