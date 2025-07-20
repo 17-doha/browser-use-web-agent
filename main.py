@@ -6,24 +6,26 @@ from datetime import datetime
 from dotenv import load_dotenv
 from PIL import Image
 import imageio
-import mss
+import threading
 import time
-from browser_use import Agent
+
+from browser_use import Agent, BrowserSession
 from browser_use.llm import ChatGoogle
+from playwright.async_api import async_playwright
 
 load_dotenv()
-
 
 def ensure_dirs():
     os.makedirs("static/screenshots", exist_ok=True)
     os.makedirs("static/gifs", exist_ok=True)
 
-
 def generate_gif_from_images(image_paths, output_path):
     images = [Image.open(img).convert("RGB") for img in image_paths if os.path.exists(img)]
-    if images:
+    if len(images) >= 2:
         imageio.mimsave(output_path, images, fps=1)
-
+        print(f"[✔] GIF generated: {output_path}")
+    else:
+        print("[!] Not enough images to create a GIF.")
 
 async def run_agent_task(prompt: str):
     ensure_dirs()
@@ -32,59 +34,67 @@ async def run_agent_task(prompt: str):
     screenshot_dir = os.path.join("static/screenshots", f"run_{timestamp}")
     os.makedirs(screenshot_dir, exist_ok=True)
     gif_path = f"static/gifs/test_{timestamp}.gif"
+
     screenshots = []
+    stop_flag = [False]
 
-    # ✅ Use mutable list as flag across threads
-    stop_capture_flag = [False]
-
-    def capture_loop():
+    async def capture_loop(page):
         frame = 0
-        with mss.mss() as sct:
-            while not stop_capture_flag[0]:
-                output = os.path.join(screenshot_dir, f"frame_{frame}.png")
-                sct.shot(output=output)
-                screenshots.append(output)
+        while not stop_flag[0]:
+            try:
+                screenshot_path = os.path.join(screenshot_dir, f"frame_{frame}.png")
+                await page.screenshot(path=screenshot_path)
+                screenshots.append(screenshot_path)
+                print(f"[+] Captured screenshot: {screenshot_path}")
                 frame += 1
-                time.sleep(1)  # 1 frame per second
+            except Exception as e:
+                print(f"[ERROR] Failed to capture screenshot: {e}")
+            await asyncio.sleep(10) 
 
-    # Start screenshot thread
-    import threading
-    thread = threading.Thread(target=capture_loop)
-    thread.start()
+    # Launch Playwright and create browser objects
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=False)  # Non-headless for visible actions
+        context = await browser.new_context()
+        page = await context.new_page()
 
-    # Run the agent
-    agent = Agent(
-        task=prompt,
-        llm=ChatGoogle(
-            model="gemini-2.0-flash",
-            api_key=os.getenv("GOOGLE_API_KEY")
-        ),
-        max_steps=100
-    )
+        # Create BrowserSession with the existing Playwright page
+        browser_session = BrowserSession(page=page)
 
-    try:
-        result = await agent.run()
-    finally:
-        # ✅ Stop recording after agent finishes (even if there's an error)
-        stop_capture_flag[0] = True
-        thread.join()
+        # Start capture in a background task
+        capture_task = asyncio.create_task(capture_loop(page))
 
-    # Try to extract result text
-    result_text = "Test Completed"
-    if hasattr(result, "all_model_outputs"):
+        # Run the Agent
+        try:
+            agent = Agent(
+                task=prompt,
+                llm=ChatGoogle(
+                    model="gemini-2.0-flash",
+                    api_key=os.getenv("GOOGLE_API_KEY")
+                ),
+                browser_session=browser_session,
+                max_steps=100
+            )
+            result = await agent.run()
+        finally:
+            stop_flag[0] = True
+            await capture_task  # Wait for capture to finish
+            await browser.close()
+
+    # Extract result text
+    result_text = "Test completed successfully."
+    if hasattr(result, "all_model_outputs") and isinstance(result.all_model_outputs, list):
         for output in reversed(result.all_model_outputs):
             if isinstance(output, dict) and "done" in output:
                 result_text = output["done"].get("text", result_text)
                 break
 
-    # Generate GIF from captured screenshots
+    # Generate GIF
     generate_gif_from_images(screenshots, gif_path)
 
     return {
         "text": result_text,
         "gif_path": gif_path if os.path.exists(gif_path) else None
     }
-
 
 def run_prompt(prompt: str):
     return asyncio.run(run_agent_task(prompt))
