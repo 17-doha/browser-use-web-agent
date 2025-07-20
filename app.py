@@ -26,33 +26,38 @@ def execute_prompt():
 
 1. Navigate to the login page: https://testing.praxilabs-lms.com
 
-2. Wait for login form using exact CSS selectors:
+2. Wait for the login form to fully load. Use the following exact CSS selectors to locate the form fields:
    - Email input: input[type="email"]
    - Password input: input[type="password"]
-   - Login button: button[type="submit"]
+   - Login button: button[type="submit"], or a button containing "Login"
 
-3. Login with:
+3. Log in using:
    - Email: {username}
    - Password: {password}
 
-4. Verify "Courses" tab is present to confirm login.
+4. Verify login was successful by checking for a visible "Courses" tab.
 
-5. Retry once on failure.
+5. If login fails, retry once.
 
-6. After login:
+6. After successful login:
 """
 
     final_prompt = f"{pre_prompt}\n{prompt}"
 
     try:
         result = run_prompt(final_prompt)
+
         response = {
             "status": "success",
-            "result": result["text"]
+            "result": result["text"],
+            "test_status": result["status"]  # success or fail
         }
 
         if result.get("gif_path"):
             response["gif_url"] = "/" + result["gif_path"]
+
+        if result.get("pdf_path"):
+            response["pdf_url"] = "/" + result["pdf_path"]
 
         return jsonify(response)
 
