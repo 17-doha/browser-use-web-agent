@@ -32,9 +32,7 @@
 
     <!-- Navigation -->
     <div class="nav-container mb-6">
-      <button class="nav-button active" onclick="showSection('dashboard', 'all')">Dashboard</button>
-      <button class="nav-button" onclick="showSection('dashboard', 'login')">Login Tests</button>
-      <button class="nav-button" onclick="showSection('dashboard', 'other')">Other Tests</button>
+      <button class="nav-button active" onclick="showSection('dashboard')">Dashboard</button>
       <button class="nav-button" onclick="openModal('createModal')">Create Test</button>
     </div>
 
@@ -44,15 +42,38 @@
       <div class="action-buttons">
         <button class="action-button" onclick="exportPlaybook()">Export Playbook</button>
         <button class="action-button new-test" onclick="openModal('createModal')">New Test Case</button>
+        
+        <!-- New Frequent Button with Dropdown -->
+        <div class="frequent-dropdown">
+          <button class="action-button frequent-btn" onclick="toggleFrequentDropdown()">
+            Frequent ▼
+          </button>
+          <div class="dropdown-content" id="frequentDropdown">
+            <a href="#" onclick="handleFrequentAction('add')">Add</a>
+            <a href="#" onclick="handleFrequentAction('drop')">Drop</a>
+            <a href="#" onclick="handleFrequentAction('delete')">Delete</a>
+            <a href="#" onclick="handleFrequentAction('Search')">Search</a>
+          </div>
+        </div>
       </div>
 
       <!-- Test Case Container -->
       <div id="testCaseContainer"></div>
 
+      <!-- Control Buttons (moved above test case container) -->
+      <div class="control-buttons">
+        <button class="action-button delete-btn" onclick="deleteLatestEntry()">Delete</button>
+        <button class="action-button run-btn" onclick="runLatestEntry()">Run</button>
+        <button class="action-button edit-btn" onclick="editLatestEntry()">Edit</button>
+      </div>
+
       <!-- Latest Result -->
       <div class="result-section">
         <label>Latest Result:</label>
         <div class="result-box" id="latestResult"></div>
+        <!-- Test GIF Output -->
+        <div id="gifPreview" class="gif-container" style="margin-top: 1rem;"></div>
+
       </div>
     </div>
 
@@ -61,20 +82,55 @@
       <div class="modal-content">
         <h2 class="dashboard-title">Create New Test Case</h2>
         <div class="prompt-section">
-          <label>Username:</label>
-          <input type="text" id="newUsernameInput" class="prompt-input" placeholder="Enter Username" />
-          <label>Password:</label>
-          <input type="text" id="newPasswordInput" class="prompt-input" placeholder="Enter Password" />
+          <label>Email: <span class="required">*</span></label>
+          <input type="email" id="newEmailInput" class="prompt-input" placeholder="Enter Email" required />
+          
+          <label>Password: <span class="required">*</span></label>
+          <input type="password" id="newPasswordInput" class="prompt-input" placeholder="Enter Password" required />
+          
+          <label>Action Type (Optional):</label>
+          <select id="actionTypeSelect" class="prompt-input">
+            <option value="">Select an action...</option>
+            <option value="search">Search</option>
+            <option value="delete">Delete</option>
+            <option value="add">Add</option>
+            <option value="edit">Edit</option>
+          </select>
+          
           <label>New Prompt:</label>
           <input type="text" id="newPromptInput" class="prompt-input" placeholder="Enter new prompt" />
-          <label>Test Category:</label>
-          <select id="testCategory" class="prompt-input">
-            <option value="login">Login Test</option>
-            <option value="other">Other Test</option>
-          </select>
     
           <button class="action-button" onclick="saveNewPrompt()">Save Test</button>
           <button class="action-button" onclick="closeModal('createModal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Test Modal -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <h2 class="dashboard-title">Edit Test Case</h2>
+        <div class="prompt-section">
+          <label>Email: <span class="required">*</span></label>
+          <input type="email" id="editEmailInput" class="prompt-input" placeholder="Enter Email" required />
+          
+          <label>Password: <span class="required">*</span></label>
+          <input type="password" id="editPasswordInput" class="prompt-input" placeholder="Enter Password" required />
+          
+          <label>Action Type (Optional):</label>
+          <select id="editActionTypeSelect" class="prompt-input">
+            <option value="">Select an action...</option>
+            <option value="search">Search</option>
+            <option value="delete">Delete</option>
+            <option value="add">Add</option>
+            <option value="edit">Edit</option>
+          </select>
+          
+          <label>Prompt:</label>
+          <input type="text" id="editPromptInput" class="prompt-input" placeholder="Enter prompt" />
+    
+          <button class="action-button" onclick="saveEditedPrompt()">Save Changes</button>
+          <button class="action-button" onclick="closeModal('editModal')">Cancel</button>
         </div>
       </div>
     </div>

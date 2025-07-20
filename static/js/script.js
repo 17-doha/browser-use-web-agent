@@ -1,105 +1,208 @@
-let testCases = [];
-let activeCategory = 'all';
-
-function showSection(section, category = 'all') {
-  document.querySelectorAll('.dashboard-container').forEach(el => el.classList.remove('active'));
-  document.getElementById(section).classList.add('active');
-
-  document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
-  document.querySelector(`.nav-button[onclick*="${category}"]`)?.classList.add('active') ||
-    document.querySelector(`.nav-button[onclick*="${section}"]`).classList.add('active');
-
-  activeCategory = category;
+// Initialize
+window.onload = () => {
+  showSection('dashboard');
   renderTestCases();
+};
+
+let testCases = [];
+let currentEditingId = null; // Track which test case is being edited
+
+// Initialize the application
+document.addEventListener("DOMContentLoaded", function() {
+  showSection("dashboard");
+  renderTestCases();
+  updateStats();
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", function(event) {
+    if (!event.target.matches(".frequent-btn")) {
+      closeFrequentDropdown();
+    }
+  });
+});
+
+function showSection(section) {
+  document.querySelectorAll(".dashboard-container").forEach(el => el.classList.remove("active"));
+  document.getElementById(section).classList.add("active");
+  document.querySelectorAll(".nav-button").forEach(btn => btn.classList.remove("active"));
+  document.querySelector(`.nav-button[onclick*="${section}"]`).classList.add("active");
 }
 
 function openModal(modalId) {
-  document.getElementById(modalId).style.display = 'block';
+  document.getElementById(modalId).style.display = "block";
+  if (modalId === "createModal") {
+    clearCreateForm();
+  }
 }
 
 function closeModal(modalId) {
-  document.getElementById(modalId).style.display = 'none';
+  document.getElementById(modalId).style.display = "none";
+  if (modalId === "editModal") {
+    currentEditingId = null; // Clear editing state
+  }
+}
+
+function clearCreateForm() {
+  document.getElementById("newEmailInput").value = "";
+  document.getElementById("newPasswordInput").value = "";
+  document.getElementById("actionTypeSelect").value = "";
+  document.getElementById("newPromptInput").value = "";
+}
+
+function clearEditForm() {
+  document.getElementById("editEmailInput").value = "";
+  document.getElementById("editPasswordInput").value = "";
+  document.getElementById("editActionTypeSelect").value = "";
+  document.getElementById("editPromptInput").value = "";
 }
 
 function updateStats() {
-  const filteredTests = activeCategory === 'all' 
-    ? testCases 
-    : testCases.filter(t => t.category === activeCategory);
-  
-  document.getElementById('totalTests').textContent = filteredTests.length;
-  document.getElementById('successfulTests').textContent = filteredTests.filter(t => t.status === 'success').length;
-  document.getElementById('failedTests').textContent = filteredTests.filter(t => t.status === 'failed').length;
-  document.getElementById('categories').textContent = new Set(testCases.map(t => t.username)).size;
+  document.getElementById("totalTests").textContent = testCases.length;
+  document.getElementById("successfulTests").textContent = testCases.filter(t => t.status === "success").length;
+  document.getElementById("failedTests").textContent = testCases.filter(t => t.status === "failed").length;
+  document.getElementById("categories").textContent = new Set(testCases.map(t => t.actionType).filter(type => type)).size;
 }
 
 function renderTestCases() {
-  const container = document.getElementById('testCaseContainer');
-  container.innerHTML = '';
+  const container = document.getElementById("testCaseContainer");
+  container.innerHTML = "";
 
-  const filteredTests = activeCategory === 'all' 
-    ? testCases 
-    : testCases.filter(t => t.category === activeCategory);
+  if (testCases.length === 0) {
+    container.innerHTML = 
+      `<p style="text-align: center; color: #6b7280; padding: 2rem;">No test cases created yet.</p>`;
+    return;
+  }
 
-  filteredTests.forEach(test => {
-    const div = document.createElement('div');
-    div.className = 'test-case-card';
+  testCases.forEach(test => {
+    const div = document.createElement("div");
+    div.className = "test-case-card";
     div.innerHTML = `
       <div class="test-case-header">
-        <span class="validation ${test.status === 'failed' ? 'failed' : ''}">
-          ${test.status === 'failed' ? '⚠ ' : ''}${test.validation}
+        <span class="validation ${test.status === "failed" ? "failed" : ""}">
+          ${test.status === "failed" ? "⚠ " : ""}${test.prompt}
         </span>
-        <span class="username">${test.username}</span>
-        <span class="category">[${test.category}]</span>
+        <span class="username">${test.email}${test.actionType ? ` - ${test.actionType}` : ""}</span>
       </div>
       <div class="test-case-actions">
         <button class="action-button small" onclick="deleteTestCase(${test.id})">🗑</button>
         <button class="action-button run" onclick="runTest(${test.id})">Run</button>
+        <button class="action-button edit" onclick="editTestCase(${test.id})">Edit</button>
       </div>
     `;
     container.appendChild(div);
   });
-
   updateStats();
 }
 
-function createNewTest() {
-  openModal('createModal');
-  document.getElementById('newPromptInput').value = '';
-  document.getElementById('newUsernameInput').value = '';
-  document.getElementById('newPasswordInput').value = '';
-  document.getElementById('testCategory').value = activeCategory === 'all' ? 'login' : activeCategory;
-}
-
 function saveNewPrompt() {
-  const newUsername = document.getElementById('newUsernameInput').value.trim();
-  const newPassword = document.getElementById('newPasswordInput').value.trim();
-  const newPrompt = document.getElementById('newPromptInput').value.trim();
-  const category = document.getElementById('testCategory').value;
+  const newEmail = document.getElementById("newEmailInput").value.trim();
+  const newPassword = document.getElementById("newPasswordInput").value.trim();
+  const actionType = document.getElementById("actionTypeSelect").value;
+  const newPrompt = document.getElementById("newPromptInput").value.trim();
 
-  if (!newUsername || !newPassword || !newPrompt) {
-    return alert("Please enter username, password, and prompt");
+  if (!newEmail || !newPassword || !newPrompt) {
+    return alert("Please enter email, password, and prompt");
+  }
+
+  if (!isValidEmail(newEmail)) {
+    alert("Please enter a valid email address");
+    return;
   }
 
   const newTest = {
     id: Date.now(),
-    validation: `Test ${newPrompt}`,
-    username: newUsername,
+    email: newEmail,
     password: newPassword,
+    actionType: actionType,
     prompt: newPrompt,
-    category: category,
-    status: 'pending'
+    status: "pending"
   };
 
   testCases.push(newTest);
-  closeModal('createModal');
+  closeModal("createModal");
   renderTestCases();
+  updateLatestResult("New test case created successfully");
+}
+
+function editTestCase(id) {
+  const test = testCases.find(t => t.id === id);
+  if (!test) {
+    alert("Test case not found");
+    return;
+  }
+
+  // Set the current editing ID
+  currentEditingId = id;
+
+  // Populate the edit form with current values
+  document.getElementById("editEmailInput").value = test.email;
+  document.getElementById("editPasswordInput").value = test.password;
+  document.getElementById("editActionTypeSelect").value = test.actionType || "";
+  document.getElementById("editPromptInput").value = test.prompt;
+
+  // Open the edit modal
+  openModal("editModal");
+}
+
+function saveEditedPrompt() {
+  if (!currentEditingId) {
+    alert("No test case selected for editing");
+    return;
+  }
+
+  const editedEmail = document.getElementById("editEmailInput").value.trim();
+  const editedPassword = document.getElementById("editPasswordInput").value.trim();
+  const editedActionType = document.getElementById("editActionTypeSelect").value;
+  const editedPrompt = document.getElementById("editPromptInput").value.trim();
+
+  if (!editedEmail || !editedPassword || !editedPrompt) {
+    return alert("Please enter email, password, and prompt");
+  }
+
+  if (!isValidEmail(editedEmail)) {
+    alert("Please enter a valid email address");
+    return;
+  }
+
+  // Find and update the test case
+  const testIndex = testCases.findIndex(t => t.id === currentEditingId);
+  if (testIndex !== -1) {
+    testCases[testIndex].email = editedEmail;
+    testCases[testIndex].password = editedPassword;
+    testCases[testIndex].actionType = editedActionType;
+    testCases[testIndex].prompt = editedPrompt;
+    
+    closeModal("editModal");
+    renderTestCases();
+    updateLatestResult(`Test case ${currentEditingId} updated successfully`);
+  } else {
+    alert("Test case not found");
+  }
+}
+
+function editLatestEntry() {
+  if (testCases.length > 0) {
+    const latestTest = testCases[testCases.length - 1];
+    editTestCase(latestTest.id);
+  } else {
+    alert("No entries to edit");
+  }
+}
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
 function deleteTestCase(id) {
-  testCases = testCases.filter(t => t.id !== id);
-  renderTestCases();
-  alert(`Deleted test case with ID ${id}`);
+  if (confirm("Are you sure you want to delete this test case?")) {
+    testCases = testCases.filter(t => t.id !== id);
+    renderTestCases();
+    updateLatestResult(`Deleted test case with ID ${id}`);
+  }
 }
+
+document.getElementById("gifPreview").innerHTML = "";
 
 async function runTest(id) {
   const test = testCases.find(t => t.id === id);
@@ -111,7 +214,7 @@ async function runTest(id) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: test.prompt,
-        username: test.username,
+        username: test.email,
         password: test.password
       })
     });
@@ -119,7 +222,15 @@ async function runTest(id) {
     const data = await res.json();
     if (res.ok) {
       test.status = 'success';
-      document.getElementById('latestResult').textContent = `Test ${id} succeeded: ${data.result}`;
+      document.getElementById('latestResult').textContent = `✅ Test ${id} succeeded: ${data.result}`;
+
+      if (data.gif_url) {
+        const gifContainer = document.getElementById("gifPreview");
+        gifContainer.innerHTML = `
+          <img src="${data.gif_url}" alt="Test Run GIF" style="max-width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+        `;
+      }
+
     } else {
       test.status = 'failed';
       document.getElementById('latestResult').textContent = `Test ${id} failed: ${data.message}`;
@@ -133,22 +244,97 @@ async function runTest(id) {
 }
 
 function exportPlaybook() {
-  const filteredTests = activeCategory === 'all' 
-    ? testCases 
-    : testCases.filter(t => t.category === activeCategory);
-  const data = JSON.stringify(filteredTests, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
+  const data = JSON.stringify(testCases, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
-  a.download = `playbook_${activeCategory}.json`;
+  a.download = "playbook.json";
   a.click();
   URL.revokeObjectURL(url);
-  alert(`Playbook exported as playbook_${activeCategory}.json`);
+  updateLatestResult("Playbook exported as playbook.json");
 }
 
-// Initialize
-window.onload = () => {
-  showSection('dashboard', 'all');
-  renderTestCases();
-};
+function updateLatestResult(message) {
+  document.getElementById("latestResult").textContent = message;
+}
+
+// Frequent dropdown functions
+function toggleFrequentDropdown() {
+  const dropdown = document.getElementById("frequentDropdown");
+  dropdown.classList.toggle("show");
+}
+
+function closeFrequentDropdown() {
+  const dropdown = document.getElementById("frequentDropdown");
+  dropdown.classList.remove("show");
+}
+
+function handleFrequentAction(action) {
+  closeFrequentDropdown();
+  switch (action) {
+    case "add":
+      alert("Frequent Add action triggered");
+      // Add your frequent add logic here
+      break;
+    case "drop":
+      alert("Frequent Drop action triggered");
+      // Add your frequent drop logic here
+      break;
+    case "delete":
+      alert("Frequent Delete action triggered");
+      // Add your frequent delete logic here
+      break;
+    case "Search":
+      alert("Frequent Search action triggered");
+      // Add your frequent search logic here
+      break;
+    default:
+      console.log("Unknown frequent action:", action);
+  }
+}
+
+// Control button functions (Delete, Run, and Edit for latest entry)
+function deleteLatestEntry() {
+  if (testCases.length > 0) {
+    if (confirm("Are you sure you want to delete the latest entry?")) {
+      testCases.pop();
+      updateStats();
+      renderTestCases();
+      updateLatestResult("Latest entry deleted");
+    }
+  } else {
+    alert("No entries to delete");
+  }
+}
+
+function runLatestEntry() {
+  if (testCases.length > 0) {
+    const latestTest = testCases[testCases.length - 1];
+    runTest(latestTest.id);
+  } else {
+    alert("No entries to run");
+  }
+}
+
+// Keyboard shortcuts
+document.addEventListener("keydown", function(event) {
+  // Escape key to close modals
+  if (event.key === "Escape") {
+    closeModal("createModal");
+    closeModal("editModal");
+    closeFrequentDropdown();
+  }
+
+  // Ctrl+N to open new test case modal
+  if (event.ctrlKey && event.key === "n") {
+    event.preventDefault();
+    openModal("createModal");
+  }
+
+  // Ctrl+E to edit latest entry
+  if (event.ctrlKey && event.key === "e") {
+    event.preventDefault();
+    editLatestEntry();
+  }
+});
