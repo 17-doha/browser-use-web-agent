@@ -4,17 +4,14 @@ window.onload = () => {
   renderTestCases();
 };
 
-
 let testCases = [];
 let currentEditingId = null; // Track which test case is being edited
-
 
 // Initialize the application
 document.addEventListener("DOMContentLoaded", function() {
   showSection("dashboard");
   renderTestCases();
   updateStats();
-
 
   // Close dropdown when clicking outside
   document.addEventListener("click", function(event) {
@@ -24,14 +21,12 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 });
 
-
 function showSection(section) {
   document.querySelectorAll(".dashboard-container").forEach(el => el.classList.remove("active"));
   document.getElementById(section).classList.add("active");
   document.querySelectorAll(".nav-button").forEach(btn => btn.classList.remove("active"));
   document.querySelector(`.nav-button[onclick*="${section}"]`).classList.add("active");
 }
-
 
 function openModal(modalId) {
   document.getElementById(modalId).style.display = "block";
@@ -40,14 +35,12 @@ function openModal(modalId) {
   }
 }
 
-
 function closeModal(modalId) {
   document.getElementById(modalId).style.display = "none";
   if (modalId === "editModal") {
     currentEditingId = null; // Clear editing state
   }
 }
-
 
 function clearCreateForm() {
   document.getElementById("newEmailInput").value = "";
@@ -56,14 +49,12 @@ function clearCreateForm() {
   document.getElementById("newPromptInput").value = "";
 }
 
-
 function clearEditForm() {
   document.getElementById("editEmailInput").value = "";
   document.getElementById("editPasswordInput").value = "";
   document.getElementById("editActionTypeSelect").value = "";
   document.getElementById("editPromptInput").value = "";
 }
-
 
 function updateStats() {
   document.getElementById("totalTests").textContent = testCases.length;
@@ -72,18 +63,15 @@ function updateStats() {
   document.getElementById("categories").textContent = new Set(testCases.map(t => t.actionType).filter(type => type)).size;
 }
 
-
 function renderTestCases() {
   const container = document.getElementById("testCaseContainer");
   container.innerHTML = "";
-
 
   if (testCases.length === 0) {
     container.innerHTML = 
       `<p style="text-align: center; color: #6b7280; padding: 2rem;">No test cases created yet.</p>`;
     return;
   }
-
 
   testCases.forEach(test => {
     const div = document.createElement("div");
@@ -100,6 +88,7 @@ function renderTestCases() {
         <button class="action-button run" onclick="runTest(${test.id})">Run</button>
         <button class="action-button edit" onclick="editTestCase(${test.id})">Edit</button>
         ${test.pdf_url ? `<button class="action-button download-btn" onclick="downloadPDF(${test.id})">🖥️ PDF</button>` : ''}
+        ${test.gif_path ? `<button class="action-button gif-btn" onclick="viewGIF(${test.id})">🎥 GIF</button>` : ''}
       </div>
     `;
     container.appendChild(div);
@@ -107,6 +96,14 @@ function renderTestCases() {
   updateStats();
 }
 
+function viewGIF(id) {
+  const test = testCases.find(t => t.id === id);
+  if (test && test.gif_path) {
+    window.open(test.gif_path, '_blank');
+  } else {
+    alert("No GIF available for this test case.");
+  }
+}
 
 function downloadPDF(id) {
   const test = testCases.find(t => t.id === id);
@@ -122,24 +119,20 @@ function downloadPDF(id) {
   }
 }
 
-
 function saveNewPrompt() {
   const newEmail = document.getElementById("newEmailInput").value.trim();
   const newPassword = document.getElementById("newPasswordInput").value.trim();
   const actionType = document.getElementById("actionTypeSelect").value;
   const newPrompt = document.getElementById("newPromptInput").value.trim();
 
-
   if (!newEmail || !newPassword || !newPrompt) {
     return alert("Please enter email, password, and prompt");
   }
-
 
   if (!isValidEmail(newEmail)) {
     alert("Please enter a valid email address");
     return;
   }
-
 
   const newTest = {
     id: Date.now(),
@@ -150,13 +143,11 @@ function saveNewPrompt() {
     status: "pending"
   };
 
-
   testCases.push(newTest);
   closeModal("createModal");
   renderTestCases();
   updateLatestResult("New test case created successfully");
 }
-
 
 function editTestCase(id) {
   const test = testCases.find(t => t.id === id);
@@ -165,22 +156,15 @@ function editTestCase(id) {
     return;
   }
 
-
-  // Set the current editing ID
   currentEditingId = id;
 
-
-  // Populate the edit form with current values
   document.getElementById("editEmailInput").value = test.email;
   document.getElementById("editPasswordInput").value = test.password;
   document.getElementById("editActionTypeSelect").value = test.actionType || "";
   document.getElementById("editPromptInput").value = test.prompt;
 
-
-  // Open the edit modal
   openModal("editModal");
 }
-
 
 function saveEditedPrompt() {
   if (!currentEditingId) {
@@ -188,25 +172,20 @@ function saveEditedPrompt() {
     return;
   }
 
-
   const editedEmail = document.getElementById("editEmailInput").value.trim();
   const editedPassword = document.getElementById("editPasswordInput").value.trim();
   const editedActionType = document.getElementById("editActionTypeSelect").value;
   const editedPrompt = document.getElementById("editPromptInput").value.trim();
 
-
   if (!editedEmail || !editedPassword || !editedPrompt) {
     return alert("Please enter email, password, and prompt");
   }
-
 
   if (!isValidEmail(editedEmail)) {
     alert("Please enter a valid email address");
     return;
   }
 
-
-  // Find and update the test case
   const testIndex = testCases.findIndex(t => t.id === currentEditingId);
   if (testIndex !== -1) {
     testCases[testIndex].email = editedEmail;
@@ -222,7 +201,6 @@ function saveEditedPrompt() {
   }
 }
 
-
 function editLatestEntry() {
   if (testCases.length > 0) {
     const latestTest = testCases[testCases.length - 1];
@@ -232,12 +210,10 @@ function editLatestEntry() {
   }
 }
 
-
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
-
 
 function deleteTestCase(id) {
   if (confirm("Are you sure you want to delete this test case?")) {
@@ -247,11 +223,9 @@ function deleteTestCase(id) {
   }
 }
 
-
 async function runTest(id) {
   const test = testCases.find(t => t.id === id);
   if (!test) return alert("Test not found");
-
 
   try {
     const res = await fetch('/run', {
@@ -264,24 +238,28 @@ async function runTest(id) {
       })
     });
 
-
     const data = await res.json();
     if (res.ok) {
-      test.status = data.test_status || 'success';  // Use returned status
-      test.pdf_url = data.pdf_url;  // Store PDF URL
+      test.status = data.status || 'success';  // Adjusted to match backend's "status"
+      test.pdf_url = data.pdf_url;  // Store PDF URL if present
+      test.gif_path = data.gif_url;  // UPDATED: Use "gif_url" from backend response
       document.getElementById('latestResult').textContent = `Test ${id} succeeded: ${data.result}`;
+      // Show GIF preview in latest result (small thumbnail)
+      const previewContainer = document.getElementById('latestGifPreview');
+      previewContainer.innerHTML = test.gif_path ? `<img src="${test.gif_path}" alt="Latest GIF" style="max-width: 200px; border: 1px solid #ddd; border-radius: 4px;">` : '';
     } else {
       test.status = 'failed';
       document.getElementById('latestResult').textContent = `Test ${id} failed: ${data.message}`;
+      document.getElementById('latestGifPreview').innerHTML = '';  // Clear preview on failure
     }
     renderTestCases();
   } catch (error) {
     test.status = 'failed';
     document.getElementById('latestResult').textContent = `Test ${id} failed: ${error.message}`;
+    document.getElementById('latestGifPreview').innerHTML = '';  // Clear preview
     renderTestCases();
   }
 }
-
 
 function exportPlaybook() {
   const data = JSON.stringify(testCases, null, 2);
@@ -295,11 +273,9 @@ function exportPlaybook() {
   updateLatestResult("Playbook exported as playbook.json");
 }
 
-
 function updateLatestResult(message) {
   document.getElementById("latestResult").textContent = message;
 }
-
 
 // Frequent dropdown functions
 function toggleFrequentDropdown() {
@@ -307,12 +283,10 @@ function toggleFrequentDropdown() {
   dropdown.classList.toggle("show");
 }
 
-
 function closeFrequentDropdown() {
   const dropdown = document.getElementById("frequentDropdown");
   dropdown.classList.remove("show");
 }
-
 
 function handleFrequentAction(action) {
   closeFrequentDropdown();
@@ -338,7 +312,6 @@ function handleFrequentAction(action) {
   }
 }
 
-
 // Control button functions (Delete, Run, and Edit for latest entry)
 function deleteLatestEntry() {
   if (testCases.length > 0) {
@@ -353,7 +326,6 @@ function deleteLatestEntry() {
   }
 }
 
-
 function runLatestEntry() {
   if (testCases.length > 0) {
     const latestTest = testCases[testCases.length - 1];
@@ -362,7 +334,6 @@ function runLatestEntry() {
     alert("No entries to run");
   }
 }
-
 
 // Keyboard shortcuts
 document.addEventListener("keydown", function(event) {
@@ -373,13 +344,11 @@ document.addEventListener("keydown", function(event) {
     closeFrequentDropdown();
   }
 
-
   // Ctrl+N to open new test case modal
   if (event.ctrlKey && event.key === "n") {
     event.preventDefault();
     openModal("createModal");
   }
-
 
   // Ctrl+E to edit latest entry
   if (event.ctrlKey && event.key === "e") {

@@ -6,13 +6,11 @@ body {
   color: #333;
 }
 
-
 .max-w-4xl {
   max-width: 64rem;
   margin-left: auto;
   margin-right: auto;
 }
-
 
 /* Header */
 h1 {
@@ -23,7 +21,6 @@ h1 {
   color: #6b21a8;
 }
 
-
 /* Stats Container */
 .stats-container {
   display: flex;
@@ -31,7 +28,6 @@ h1 {
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-
 
 .stat-card {
   background: #fff;
@@ -42,7 +38,6 @@ h1 {
   flex: 1;
 }
 
-
 .stat-value {
   display: block;
   font-size: 1.5rem;
@@ -50,10 +45,8 @@ h1 {
   margin-top: 0.5rem;
 }
 
-
 .success { color: #10b981; }
 .failed { color: #ef4444; }
-
 
 /* Navigation */
 .nav-container {
@@ -61,7 +54,6 @@ h1 {
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-
 
 .nav-button {
   padding: 0.5rem 1rem;
@@ -71,12 +63,10 @@ h1 {
   cursor: pointer;
 }
 
-
 .nav-button.active {
   background: #a78bfa;
   color: #fff;
 }
-
 
 /* Dashboard */
 .dashboard-container {
@@ -86,13 +76,11 @@ h1 {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-
 .dashboard-title {
   font-size: 1.5rem;
   font-weight: bold;
   margin-bottom: 1rem;
 }
-
 
 .action-buttons {
   display: flex;
@@ -100,7 +88,6 @@ h1 {
   margin-bottom: 1.5rem;
   align-items: center;
 }
-
 
 .action-button {
   padding: 0.5rem 1rem;
@@ -112,21 +99,17 @@ h1 {
   transition: background-color 0.2s;
 }
 
-
 .action-button:hover {
   background: #9333ea;
 }
-
 
 .action-button.new-test {
   background: #a855f7;
 }
 
-
 .action-button.new-test:hover {
   background: #9333ea;
 }
-
 
 /* Frequent Dropdown Styles */
 .frequent-dropdown {
@@ -134,16 +117,13 @@ h1 {
   display: inline-block;
 }
 
-
 .frequent-btn {
   background: #8b5cf6 !important;
 }
 
-
 .frequent-btn:hover {
   background: #7c3aed !important;
 }
-
 
 .dropdown-content {
   display: none;
@@ -158,7 +138,6 @@ h1 {
   margin-top: 2px;
 }
 
-
 .dropdown-content a {
   color: #333;
   padding: 8px 12px;
@@ -167,16 +146,13 @@ h1 {
   transition: background-color 0.2s;
 }
 
-
 .dropdown-content a:hover {
   background-color: #f3f4f6;
 }
 
-
 .dropdown-content.show {
   display: block;
 }
-
 
 /* Control Buttons (Delete, Run, and Edit) */
 .control-buttons {
@@ -189,36 +165,29 @@ h1 {
   border: 1px solid #e5e7eb;
 }
 
-
 .delete-btn {
   background: #ec4899 !important; /* Deep pink */
 }
-
 
 .delete-btn:hover {
   background: #db2777 !important;
 }
 
-
 .edit-btn {
   background: #a78bfa !important; /* Purple */
 }
-
 
 .edit-btn:hover {
   background: #9333ea !important;
 }
 
-
 .run-btn {
   background: #10b981 !important; /* Green */
 }
 
-
 .run-btn:hover {
   background: #059669 !important;
 }
-
 
 /* Test Case */
 .test-case-card {
@@ -231,61 +200,50 @@ h1 {
   margin-bottom: 1rem;
 }
 
-
 .validation {
   font-size: 1rem;
 }
-
 
 .validation.failed::before {
   content: "⚠ ";
   color: #ef4444;
 }
 
-
 .username {
   color: #6b7280;
   font-size: 0.875rem;
 }
-
 
 .test-case-actions {
   display: flex;
   gap: 0.5rem;
 }
 
-
 .test-case-actions .action-button {
   padding: 0.25rem 0.5rem;
   font-size: 0.875rem;
 }
-
 
 .test-case-actions .small {
   background: #ef4444;
   padding: 0.25rem 0.5rem;
 }
 
-
 .test-case-actions .small:hover {
   background: #dc2626;
 }
-
 
 .test-case-actions .run {
   background: #10b981;
 }
 
-
 .test-case-actions .run:hover {
   background: #059669;
 }
 
-
 .test-case-actions .edit {
   background: #a78bfa;
 }
-
 
 .test-case-actions .edit:hover {
   background: #9333ea;
@@ -301,12 +259,20 @@ h1 {
   background: #2563eb !important;
 }
 
+/* NEW: GIF Button */
+.test-case-actions .gif-btn {
+  background: #22c55e !important; /* Green for media */
+  color: white;
+}
+
+.test-case-actions .gif-btn:hover {
+  background: #16a34a !important;
+}
 
 /* Prompt and Result Sections */
 .prompt-section, .result-section {
   margin-top: 1rem;
 }
-
 
 .prompt-input {
   width: 100%;
@@ -318,20 +284,17 @@ h1 {
   font-size: 1rem;
 }
 
-
 .prompt-input:focus {
   outline: none;
   border-color: #a78bfa;
   box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
 }
 
-
 /* Required Field Indicator */
 .required {
   color: #ef4444;
   font-weight: bold;
 }
-
 
 /* Select Dropdown Styling */
 select.prompt-input {
@@ -344,7 +307,6 @@ select.prompt-input {
   appearance: none;
 }
 
-
 .result-box {
   height: 4rem;
   border: 1px solid #d1d5db;
@@ -353,7 +315,6 @@ select.prompt-input {
   padding: 0.5rem;
   background-color: #f9fafb;
 }
-
 
 /* Modal */
 .modal {
@@ -367,7 +328,6 @@ select.prompt-input {
   z-index: 1000;
 }
 
-
 .modal-content {
   background: #fff;
   padding: 1.5rem;
@@ -379,12 +339,10 @@ select.prompt-input {
   position: relative;
 }
 
-
 .modal-content .action-button {
   margin-top: 1rem;
   margin-right: 1rem;
 }
-
 
 /* Form Labels */
 .prompt-section label {
@@ -393,7 +351,6 @@ select.prompt-input {
   margin-bottom: 0.25rem;
   color: #374151;
 }
-
 
 /* Responsive Design */
 @media (max-width: 768px) {
