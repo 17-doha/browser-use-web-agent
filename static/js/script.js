@@ -63,25 +63,38 @@ function toggleAction(action, checked) {
 
 // Add Test Case
 function addTestCase() {
+    const title = document.getElementById('test-title').value.trim();
     const user = document.getElementById('user-select').value;
     const promptSteps = document.getElementById('prompt-steps').value;
-    if (!user || selectedActions.length === 0 || !promptSteps.trim()) {
+    if (!title || !user || selectedActions.length === 0 || !promptSteps.trim()) {
         alert('Please fill in all fields!');
         return;
     }
     try {
         JSON.parse(promptSteps);
-        const newTestCase = { id: testCases.length + 1, user, actions: [...selectedActions], promptSteps, createdAt: new Date().toISOString(), status: 'pending', gif_path: null, pdf_url: null };
+        const newTestCase = {
+            id: testCases.length + 1,
+            title,  // <<-- add title here
+            user,
+            actions: [...selectedActions],
+            promptSteps,
+            createdAt: new Date().toISOString(),
+            status: 'pending',
+            gif_path: null,
+            pdf_url: null
+        };
         testCases.push(newTestCase);
         saveData();
         selectedActions = [];
         document.getElementById('prompt-steps').value = '';
+        document.getElementById('test-title').value = '';
         renderTestCaseList();
         alert('Test case added!');
     } catch (e) {
         alert('Invalid JSON!');
     }
 }
+
 
 // Run Tests (with backend call, GIF/PDF handling, fallback simulation)
 async function runTests() {
@@ -133,22 +146,25 @@ async function runTests() {
 // Render Test Case Cards
 function renderTestCaseList() {
     const container = document.getElementById('test-case-list');
-    container.innerHTML = testCases.length === 0 ? '<div class="no-tests">No test cases created yet.</div>' : testCases.map(tc => `
-        <div class="test-case-card">
-            <h3>Test Case #${tc.id}</h3>
-            <p>User: ${tc.user} | Created: ${new Date(tc.createdAt).toLocaleDateString()}</p>
-            <p>Status: <span class="badge ${tc.status === 'passed' ? 'badge-success' : tc.status === 'failed' ? 'badge-failure' : ''}">${tc.status || 'Pending'}</span></p>
-            <div class="buttons">
-                <button onclick="viewTestCase(${tc.id})">View</button>
-                <button onclick="editTestCase(${tc.id})">Edit</button>
-                <button onclick="runTest(${tc.id})">Run</button>
-                <button onclick="deleteTestCase(${tc.id})">Delete</button>
-                ${tc.gif_path ? `<button onclick="showGif('${tc.gif_path}')">Show GIF</button>` : ''}
-                ${tc.pdf_url ? `<button onclick="downloadPdf('${tc.pdf_url}')">Download PDF</button>` : ''}
+    container.innerHTML = testCases.length === 0
+        ? '<div class="no-tests">No test cases created yet.</div>'
+        : testCases.map(tc => `
+            <div class="test-case-card">
+                <h3>${tc.title ? tc.title : 'Test Case #' + tc.id}</h3>
+                <p>User: ${tc.user} | Created: ${new Date(tc.createdAt).toLocaleDateString()}</p>
+                <p>Status: <span class="badge ${tc.status === 'passed' ? 'badge-success' : tc.status === 'failed' ? 'badge-failure' : ''}">${tc.status || 'Pending'}</span></p>
+                <div class="buttons">
+                    <button onclick="viewTestCase(${tc.id})">View</button>
+                    <button onclick="editTestCase(${tc.id})">Edit</button>
+                    <button onclick="runTest(${tc.id})">Run</button>
+                    <button onclick="deleteTestCase(${tc.id})">Delete</button>
+                    ${tc.gif_path ? `<button onclick="showGif('${tc.gif_path}')">Show GIF</button>` : ''}
+                    ${tc.pdf_url ? `<button onclick="downloadPdf('${tc.pdf_url}')">Download PDF</button>` : ''}
+                </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
 }
+
 
 // View Test Case
 function viewTestCase(id) {
@@ -156,6 +172,7 @@ function viewTestCase(id) {
     if (!tc) return;
     document.getElementById('modal-title').textContent = 'View Test Case #' + id;
     document.getElementById('modal-form').innerHTML = `
+        <p><strong>Title:</strong> ${tc.title || ''}</p>
         <p><strong>User:</strong> ${tc.user}</p>
         <p><strong>Actions:</strong> ${tc.actions.join(', ')}</p>
         <p><strong>Prompt Steps:</strong></p>
@@ -165,12 +182,15 @@ function viewTestCase(id) {
     document.getElementById('modal').style.display = 'block';
 }
 
+
 // Edit Test Case
 function editTestCase(id) {
     const tc = testCases.find(t => t.id === id);
     if (!tc) return;
     document.getElementById('modal-title').textContent = 'Edit Test Case #' + id;
     document.getElementById('modal-form').innerHTML = `
+        <label for="edit-title">Title:</label>
+        <input id="edit-title" value="${tc.title || ''}">
         <label for="edit-user">User:</label>
         <input id="edit-user" value="${tc.user}">
         <label for="edit-actions">Actions (comma-separated):</label>
@@ -183,11 +203,13 @@ function editTestCase(id) {
     document.getElementById('modal').style.display = 'block';
 }
 
+
 // Save Modal Changes
 function saveModalChanges() {
     const id = document.getElementById('modal-save').dataset.id;
     const tc = testCases.find(t => t.id == id);
     if (!tc) return;
+    tc.title = document.getElementById('edit-title').value.trim();
     tc.user = document.getElementById('edit-user').value;
     tc.actions = document.getElementById('edit-actions').value.split(',').map(a => a.trim());
     tc.promptSteps = document.getElementById('edit-promptsteps').value;
