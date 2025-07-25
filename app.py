@@ -1,5 +1,3 @@
-# app.py
-
 from flask import Flask, request, jsonify, send_from_directory
 from main import run_prompt
 import os
@@ -41,8 +39,8 @@ def execute_prompt():
 
 6. After successful login:
 """
-
-    final_prompt = f"{pre_prompt}\n{prompt}"
+    
+    final_prompt = f"{pre_prompt} {prompt}"
 
     try:
         result = run_prompt(final_prompt)

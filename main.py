@@ -4,11 +4,10 @@ from datetime import datetime
 from dotenv import load_dotenv
 from PIL import Image
 import imageio
-import time
 from browser_use import Agent, BrowserSession, Controller
 from browser_use.llm import ChatGoogle
 from playwright.async_api import async_playwright
-from fpdf import FPDF  # For PDF generation
+from fpdf import FPDF
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -95,7 +94,7 @@ async def run_agent_task(prompt: str):
         # Start capture in a background task
         capture_task = asyncio.create_task(capture_loop())
 
-        # Custom controller for structured output (added from second code)
+        # Custom controller for structured output
         controller = Controller(output_model=TestResult)
 
         # Run the agent
@@ -106,14 +105,14 @@ async def run_agent_task(prompt: str):
                 api_key=os.getenv("GOOGLE_API_KEY")
             ),
             browser_session=browser_session,
-            controller=controller,  # Added for structured output
+            controller=controller,
             max_steps=100
         )
 
         try:
-            history = await agent.run()  # Updated to 'history' to match second code's parsing
+            history = await agent.run()
 
-            # Parse structured result (added from second code)
+            # Parse structured result
             final_output = history.final_result()
             if final_output:
                 structured_result = TestResult.model_validate_json(final_output)
@@ -122,7 +121,7 @@ async def run_agent_task(prompt: str):
                 structured_result = TestResult(steps=[], final_result="No result", status="fail")
                 status = "fail"
 
-            # Generate PDF using structured result (added from second code)
+            # Generate PDF using structured result
             generate_pdf_from_result(structured_result, pdf_path)
 
         finally:
@@ -135,10 +134,10 @@ async def run_agent_task(prompt: str):
     generate_gif_from_images(screenshots, gif_path)
 
     return {
-        "text": structured_result.final_result,  # Updated to use structured result
+        "text": structured_result.final_result,
         "gif_path": gif_path if os.path.exists(gif_path) else None,
-        "pdf_path": pdf_path if os.path.exists(pdf_path) else None,  # Added for PDF
-        "status": status  # Added from second code
+        "pdf_path": pdf_path if os.path.exists(pdf_path) else None,
+        "status": status
     }
 
 def run_prompt(prompt: str):
