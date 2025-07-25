@@ -4,11 +4,14 @@ import os
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
+# NEW: Route to serve static files (fixes GIF/PDF 404 issues)
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 @app.route("/")
 def home():
     return send_from_directory("templates", "index.html")
-
 
 @app.route("/run", methods=["POST"])
 def execute_prompt():
@@ -39,7 +42,7 @@ def execute_prompt():
 
 6. After successful login:
 """
-    
+
     final_prompt = f"{pre_prompt} {prompt}"
 
     try:
@@ -48,20 +51,19 @@ def execute_prompt():
         response = {
             "status": "success",
             "result": result["text"],
-            "test_status": result["status"]  # success or fail
+            "test_status": result["status"]
         }
 
         if result.get("gif_path"):
-            response["gif_url"] = "/" + result["gif_path"]
+            response["gif_url"] = "/" + result["gif_path"]  # e.g., /static/gifs/test_....gif
 
         if result.get("pdf_path"):
-            response["pdf_url"] = "/" + result["pdf_path"]
+            response["pdf_url"] = "/" + result["pdf_path"]  # e.g., /static/pdfs/test_....pdf
 
         return jsonify(response)
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

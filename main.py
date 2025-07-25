@@ -25,13 +25,13 @@ class TestResult(BaseModel):
 def ensure_dirs():
     os.makedirs("static/screenshots", exist_ok=True)
     os.makedirs("static/gifs", exist_ok=True)
-    os.makedirs("static/pdfs", exist_ok=True)  # Added for PDFs
+    os.makedirs("static/pdfs", exist_ok=True)
 
 def generate_gif_from_images(image_paths, output_path):
     images = [Image.open(img).convert("RGB") for img in image_paths if os.path.exists(img)]
     if len(images) >= 2:
         imageio.mimsave(output_path, images, fps=1)
-        print(f"[✔] GIF generated: {output_path}")
+        print(f"[✔] GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")  # Debug: confirm size
     else:
         print("[!] Not enough images to create a GIF.")
 
@@ -42,19 +42,17 @@ def generate_pdf_from_result(structured_result, pdf_path):
 
     pdf.cell(200, 10, txt="Test Case Report", ln=True, align='C')
 
-    # Add steps from structured result
     pdf.cell(200, 10, txt="Steps:", ln=True)
     for idx, step in enumerate(structured_result.steps):
         step_data = f"Step {idx+1}: Action - {step.action}, Description - {step.description}"
         pdf.multi_cell(0, 10, step_data)
 
-    # Add final result and status
     pdf.cell(200, 10, txt="Final Result:", ln=True)
     pdf.multi_cell(0, 10, structured_result.final_result)
     pdf.cell(200, 10, txt=f"Status: {structured_result.status}", ln=True)
 
     pdf.output(pdf_path)
-    print(f"[✔] PDF generated: {pdf_path}")
+    print(f"[✔] PDF generated: {pdf_path} (size: {os.path.getsize(pdf_path)} bytes)")  # Debug: confirm size
 
 async def run_agent_task(prompt: str):
     ensure_dirs()
@@ -66,16 +64,12 @@ async def run_agent_task(prompt: str):
     pdf_path = f"static/pdfs/test_{timestamp}.pdf"
     screenshots = []
 
-    # Use mutable list as flag
     stop_capture_flag = [False]
 
-    # Launch Playwright and create browser objects
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=False)  # Non-headless for visible actions
+        browser = await playwright.chromium.launch(headless=False)
         context = await browser.new_context()
         page = await context.new_page()
-
-        # Create BrowserSession with the existing Playwright page
         browser_session = BrowserSession(page=page)
 
         async def capture_loop():
@@ -89,21 +83,15 @@ async def run_agent_task(prompt: str):
                     frame += 1
                 except Exception as e:
                     print(f"[ERROR] Failed to capture screenshot: {e}")
-                await asyncio.sleep(1)  # 1 frame per second
+                await asyncio.sleep(1)
 
-        # Start capture in a background task
         capture_task = asyncio.create_task(capture_loop())
 
-        # Custom controller for structured output
         controller = Controller(output_model=TestResult)
 
-        # Run the agent
         agent = Agent(
             task=prompt,
-            llm=ChatGoogle(
-                model="gemini-2.0-flash",
-                api_key=os.getenv("GOOGLE_API_KEY")
-            ),
+            llm=ChatGoogle(model="gemini-2.0-flash", api_key=os.getenv("GOOGLE_API_KEY")),
             browser_session=browser_session,
             controller=controller,
             max_steps=100
@@ -111,8 +99,6 @@ async def run_agent_task(prompt: str):
 
         try:
             history = await agent.run()
-
-            # Parse structured result
             final_output = history.final_result()
             if final_output:
                 structured_result = TestResult.model_validate_json(final_output)
@@ -121,17 +107,18 @@ async def run_agent_task(prompt: str):
                 structured_result = TestResult(steps=[], final_result="No result", status="fail")
                 status = "fail"
 
-            # Generate PDF using structured result
             generate_pdf_from_result(structured_result, pdf_path)
 
         finally:
-            # Stop recording after agent finishes (even if there's an error)
             stop_capture_flag[0] = True
-            await capture_task  # Wait for capture to finish
+            await capture_task
             await browser.close()
 
-    # Generate GIF from captured screenshots
     generate_gif_from_images(screenshots, gif_path)
+
+    # Debug: Check if files exist
+    print(f"[DEBUG] GIF exists: {os.path.exists(gif_path)}")
+    print(f"[DEBUG] PDF exists: {os.path.exists(pdf_path)}")
 
     return {
         "text": structured_result.final_result,

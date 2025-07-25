@@ -37,6 +37,9 @@ function openTab(tabId) {
     document.getElementById(tabId).classList.add('active');
     document.querySelector(`[onclick="openTab('${tabId}')"]`).classList.add('active');
     if (tabId === 'test-cases') renderTestCaseList();
+    if (tabId === 'users') renderUsers();
+    if (tabId === 'actions') renderActions();
+    if (tabId === 'reports') populateReports();
 }
 
 // Populate Dropdowns and Checkboxes
@@ -99,7 +102,7 @@ async function runTests() {
             });
             const data = await res.json();
             if (res.ok) {
-                tc.status = data.status;
+                tc.status = data.test_status;
                 tc.gif_path = data.gif_url;
                 tc.pdf_url = data.pdf_url;
                 results.push({ testCaseId: tc.id, status: tc.status, gif_path: tc.gif_path, pdf_url: tc.pdf_url });
@@ -108,6 +111,7 @@ async function runTests() {
                 results.push({ testCaseId: tc.id, status: 'failed' });
             }
         } catch (e) {
+            console.error("Run failed for test " + tc.id + ": " + e);  // Debug log
             tc.status = Math.random() > 0.3 ? 'passed' : 'failed';
             results.push({ testCaseId: tc.id, status: tc.status });
         }
@@ -123,10 +127,10 @@ async function runTests() {
     testRuns.unshift(newRun);
     saveData();
     populateReports();
-    renderTestCaseList(); // Update cards with new status/GIF/PDF
+    renderTestCaseList();
 }
 
-// Render Test Case Cards (revised)
+// Render Test Case Cards
 function renderTestCaseList() {
     const container = document.getElementById('test-case-list');
     container.innerHTML = testCases.length === 0 ? '<div class="no-tests">No test cases created yet.</div>' : testCases.map(tc => `
@@ -146,7 +150,7 @@ function renderTestCaseList() {
     `).join('');
 }
 
-// View Test Case (open modal in read-only mode)
+// View Test Case
 function viewTestCase(id) {
     const tc = testCases.find(t => t.id === id);
     if (!tc) return;
@@ -161,7 +165,7 @@ function viewTestCase(id) {
     document.getElementById('modal').style.display = 'block';
 }
 
-// Edit Test Case (open modal with editable fields)
+// Edit Test Case
 function editTestCase(id) {
     const tc = testCases.find(t => t.id === id);
     if (!tc) return;
@@ -197,20 +201,25 @@ async function runTest(id) {
     const tc = testCases.find(t => t.id === id);
     if (!tc) return;
     try {
+        const userObj = users.find(u => u.name.replace(/ /g, '_').toLowerCase() === tc.user);
+        const email = userObj ? userObj.email : '';
+        const password = userObj ? userObj.password : '';
         const res = await fetch('/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: tc.promptSteps, username: tc.user, password: 'dummy-password' }) // Adjust password logic as needed
+            body: JSON.stringify({ prompt: tc.promptSteps, username: email, password: password })
         });
         const data = await res.json();
+        console.log('Run response:', data);  // Debug: Check what backend returns
         if (res.ok) {
-            tc.status = data.status;
+            tc.status = data.test_status;
             tc.gif_path = data.gif_url;
             tc.pdf_url = data.pdf_url;
         } else {
             tc.status = 'failed';
         }
     } catch (e) {
+        console.error('Run error:', e);  // Debug log
         tc.status = Math.random() > 0.3 ? 'passed' : 'failed';
     }
     saveData();
@@ -231,13 +240,282 @@ function closeModal() {
     document.getElementById('modal').style.display = 'none';
 }
 
+// GIF Preview (opens in new tab/window for full view)
+function showGif(gifUrl) {
+    if (!gifUrl) {
+        console.error('No GIF URL provided');
+        alert('No GIF available');
+        return;
+    }
+    console.log('Opening GIF:', gifUrl);  // Debug log
+    const w = window.open();
+    w.document.write(`<img src="${gifUrl}" alt="Test GIF" style="max-width: 100%;">`);
+}
+
+// Download PDF
+function downloadPdf(pdfUrl) {
+    if (!pdfUrl) {
+        console.error('No PDF URL provided');
+        alert('No PDF available');
+        return;
+    }
+    console.log('Downloading PDF:', pdfUrl);  // Debug log
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = 'test_report.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Populate Reports (example, adjust as needed)
+function populateReports() {
+    const list = document.getElementById('reports-list');
+    list.innerHTML = testRuns.map(run => `<div>Report #${run.id} - Total: ${run.totalTests}, Passed: ${run.passed}</div>`).join('');
+}
+
+// Render Users Table
+function renderUsers() {
+    const tbody = document.querySelector('#users-table tbody');
+    tbody.innerHTML = users.map(user => `
+        <tr>
+            <td>${user.id}</td>
+            <td>${user.name}</td>
+            <td>${user.email}</td>
+            <td>
+                <button onclick="editUser(${user.id})">Edit</button>
+                <button onclick="deleteUser(${user.id})">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Add User
+function addUser() {
+    const name = document.getElementById('user-name').value.trim();
+    const email = document.getElementById('user-email').value.trim();
+    const password = document.getElementById('user-password').value.trim();
+
+    if (!name || !email || !password) {
+        alert('Please fill in all fields!');
+        return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert('Please enter a valid email address!');
+        return;
+    }
+
+    // Check for duplicate email
+    if (users.some(u => u.email === email)) {
+        alert('A user with this email already exists!');
+        return;
+    }
+
+    const newUser = {
+        id: users.length ? Math.max(...users.map(u => u.id)) + 1 : 1,
+        name,
+        email,
+        password
+    };
+
+    users.push(newUser);
+    saveData();
+    renderUsers();
+    populateSelects(); // Update user dropdown in test cases tab
+    document.getElementById('user-form').reset();
+    alert('User added successfully!');
+}
+
+// Edit User
+function editUser(id) {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+
+    document.getElementById('modal-title').textContent = `Edit User #${id}`;
+    document.getElementById('modal-form').innerHTML = `
+        <label for="edit-name">Name:</label>
+        <input id="edit-name" value="${user.name}">
+        <label for="edit-email">Email:</label>
+        <input id="edit-email" type="email" value="${user.email}">
+        <label for="edit-password">Password:</label>
+        <input id="edit-password" type="password" value="${user.password}">
+    `;
+    document.getElementById('modal-save').style.display = 'block';
+    document.getElementById('modal-save').dataset.id = id;
+    document.getElementById('modal-save').dataset.type = 'user';
+    document.getElementById('modal').style.display = 'block';
+}
+
+// Delete User
+function deleteUser(id) {
+    if (confirm('Are you sure you want to delete this user?')) {
+        users = users.filter(u => u.id !== id);
+        saveData();
+        renderUsers();
+        populateSelects(); // Update dropdown
+    }
+}
+
+// Render Actions Table
+function renderActions() {
+    const tbody = document.querySelector('#actions-table tbody');
+    tbody.innerHTML = actions.map(action => `
+        <tr>
+            <td>${action.id}</td>
+            <td>${action.prompt}</td>
+            <td>
+                <button onclick="editAction(${action.id})">Edit</button>
+                <button onclick="deleteAction(${action.id})">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Add Action
+function addAction() {
+    const prompt = document.getElementById('action-prompt').value.trim();
+    const stepsJson = document.getElementById('action-steps').value.trim();
+
+    if (!prompt || !stepsJson) {
+        alert('Please fill in all fields!');
+        return;
+    }
+
+    try {
+        JSON.parse(stepsJson);
+    } catch (e) {
+        alert('Invalid JSON in steps!');
+        return;
+    }
+
+    const newAction = {
+        id: actions.length ? Math.max(...actions.map(a => a.id)) + 1 : 1,
+        prompt,
+        stepsJson
+    };
+
+    actions.push(newAction);
+    saveData();
+    renderActions();
+    populateSelects(); // Update actions checkboxes in test cases tab
+    document.getElementById('action-form').reset();
+    alert('Action added successfully!');
+}
+
+// Edit Action
+function editAction(id) {
+    const action = actions.find(a => a.id === id);
+    if (!action) return;
+
+    document.getElementById('modal-title').textContent = `Edit Action #${id}`;
+    document.getElementById('modal-form').innerHTML = `
+        <label for="edit-prompt">Prompt:</label>
+        <input id="edit-prompt" value="${action.prompt}">
+        <label for="edit-steps">Steps JSON:</label>
+        <textarea id="edit-steps">${action.stepsJson}</textarea>
+    `;
+    document.getElementById('modal-save').style.display = 'block';
+    document.getElementById('modal-save').dataset.id = id;
+    document.getElementById('modal-save').dataset.type = 'action';
+    document.getElementById('modal').style.display = 'block';
+}
+
+// Delete Action
+function deleteAction(id) {
+    if (confirm('Are you sure you want to delete this action?')) {
+        actions = actions.filter(a => a.id !== id);
+        saveData();
+        renderActions();
+        populateSelects(); // Update checkboxes
+    }
+}
+
+// Updated Save Modal Changes to handle users and actions
+function saveModalChanges() {
+    const id = parseInt(document.getElementById('modal-save').dataset.id);
+    const type = document.getElementById('modal-save').dataset.type;
+
+    if (type === 'user') {
+        const user = users.find(u => u.id === id);
+        if (!user) return;
+
+        const newName = document.getElementById('edit-name').value.trim();
+        const newEmail = document.getElementById('edit-email').value.trim();
+        const newPassword = document.getElementById('edit-password').value.trim();
+
+        if (!newName || !newEmail || !newPassword) {
+            alert('Please fill in all fields!');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newEmail)) {
+            alert('Please enter a valid email address!');
+            return;
+        }
+
+        if (users.some(u => u.id !== id && u.email === newEmail)) {
+            alert('A user with this email already exists!');
+            return;
+        }
+
+        user.name = newName;
+        user.email = newEmail;
+        user.password = newPassword;
+        saveData();
+        renderUsers();
+        populateSelects();
+    } else if (type === 'action') {
+        const action = actions.find(a => a.id === id);
+        if (!action) return;
+
+        const newPrompt = document.getElementById('edit-prompt').value.trim();
+        const newSteps = document.getElementById('edit-steps').value.trim();
+
+        if (!newPrompt || !newSteps) {
+            alert('Please fill in all fields!');
+            return;
+        }
+
+        try {
+            JSON.parse(newSteps);
+        } catch (e) {
+            alert('Invalid JSON in steps!');
+            return;
+        }
+
+        action.prompt = newPrompt;
+        action.stepsJson = newSteps;
+        saveData();
+        renderActions();
+        populateSelects();
+    } else {
+        // Existing test case edit logic
+        const tc = testCases.find(t => t.id === id);
+        if (!tc) return;
+        tc.user = document.getElementById('edit-user').value;
+        tc.actions = document.getElementById('edit-actions').value.split(',').map(a => a.trim());
+        tc.promptSteps = document.getElementById('edit-promptsteps').value;
+        saveData();
+        renderTestCaseList();
+    }
+
+    closeModal();
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     populateSelects();
     renderTestCaseList();
-    // Add event for saving modal
+    renderUsers();
+    renderActions();
+    populateReports();
     document.getElementById('modal-save').addEventListener('click', saveModalChanges);
 });
+
 window.onclick = (event) => {
     if (event.target === document.getElementById('modal')) closeModal();
 };
