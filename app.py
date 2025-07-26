@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from main import run_prompt
 import os
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__, static_url_path='', template_folder="templates")
 
 # NEW: Route to serve static files (fixes GIF/PDF 404 issues)
 @app.route('/static/<path:path>')
@@ -66,4 +66,5 @@ def execute_prompt():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5000)
+
