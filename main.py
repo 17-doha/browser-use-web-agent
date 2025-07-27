@@ -63,7 +63,6 @@ async def run_agent_task(prompt: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     screenshot_dir = os.path.join("static/screenshots", f"run_{timestamp}")
     os.makedirs(screenshot_dir, exist_ok=True)
-    print(f"[DEBUG] Created screenshot directory: {screenshot_dir}")
     gif_path = f"static/gifs/test_{timestamp}.gif"
     pdf_path = f"static/pdfs/test_{timestamp}.pdf"
     screenshots = []
@@ -71,10 +70,18 @@ async def run_agent_task(prompt: str):
     stop_capture_flag = [False]
 
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=False)
+        try:
+            print("[DEBUG] Starting browser launch...")
+            browser = await playwright.chromium.launch(headless=True)
+            print("[DEBUG] Browser launched successfully")
+        except Exception as e:
+            print(f"[ERROR] Browser launch failed: {str(e)}")
+            raise  # Re-raise for app.py to catch
+
         context = await browser.new_context()
         page = await context.new_page()
         browser_session = BrowserSession(page=page)
+
 
         async def capture_loop():
             frame = 0

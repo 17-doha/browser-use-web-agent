@@ -1,6 +1,7 @@
-FROM python:3.11-slim
+# Stage 1: Install Playwright and browsers in a temp image
+FROM python:3.11-slim AS installer
 
-# Install system dependencies for Playwright
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk-bridge2.0-0 \
@@ -21,11 +22,23 @@ RUN apt-get update && apt-get install -y \
     libxi6 \
     libxtst6 \
     fonts-liberation \
+    libxss1 \
+    libnspr4 \
+    libpangocairo-1.0-0 \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright browsers
-RUN pip install playwright && playwright install --with-deps chromium
+# Install Playwright and browsers
+RUN pip install playwright && \
+    playwright install-deps && \
+    playwright install chromium && \
+    echo "Playwright installed successfully"  # Debug
+
+# Stage 2: Main app image
+FROM python:3.11-slim
+
+# Copy Playwright cache from installer stage
+COPY --from=installer /root/.cache/ms-playwright /root/.cache/ms-playwright
 
 # Set working directory
 WORKDIR /app
@@ -34,14 +47,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code (including static files)
+# Copy app code
 COPY . .
 
-# Create static directories if not copied
+# Create generated directories
 RUN mkdir -p static/screenshots static/gifs static/pdfs static/css static/js
 
-# Debug: List copied files to verify
-RUN ls -la /app/static/css && ls -la /app/static/js || echo "Static files missing!"
+# Debug: Check browser cache
+RUN ls /root/.cache/ms-playwright/chromium-*/chrome-linux || echo "Browser cache missing!"
 
 # Expose port
 EXPOSE 5000

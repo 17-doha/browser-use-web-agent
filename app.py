@@ -1,12 +1,14 @@
 from flask import Flask, request, jsonify, send_from_directory
 from main import run_prompt
 import os
+import traceback
 
 app = Flask(__name__, static_url_path='', template_folder="templates")
 
-# NEW: Route to serve static files (fixes GIF/PDF 404 issues)
+# FIXED: Complete route to serve all subpaths under /static/
 @app.route('/static/<path:path>')
 def serve_static(path):
+    print(f"[DEBUG] Serving static file: /static/{path}")  # Debug log
     return send_from_directory('static', path)
 
 @app.route("/")
@@ -42,7 +44,7 @@ def execute_prompt():
 
 6. After successful login:
 """
-
+    
     final_prompt = f"{pre_prompt} {prompt}"
 
     try:
@@ -55,16 +57,17 @@ def execute_prompt():
         }
 
         if result.get("gif_path"):
-            response["gif_url"] = "/" + result["gif_path"]  # e.g., /static/gifs/test_....gif
+            response["gif_url"] = "/" + result["gif_path"]
 
         if result.get("pdf_path"):
-            response["pdf_url"] = "/" + result["pdf_path"]  # e.g., /static/pdfs/test_....pdf
+            response["pdf_url"] = "/" + result["pdf_path"]
 
         return jsonify(response)
 
     except Exception as e:
+        print(f"[ERROR] Exception in /run: {str(e)}")  # NEW: Log error
+        print(traceback.format_exc())  # NEW: Full traceback
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, port=5000)
-
