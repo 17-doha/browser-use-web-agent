@@ -150,6 +150,13 @@ async function runTests() {
     alert('All tests have been run!');
 }
 
+function deleteTestCase(id) {
+    if (confirm('Delete this test case?')) {
+        testCases = testCases.filter(t => t.id !== id);
+        saveData();
+        renderTestCaseList();
+    }
+}
 // --- Rendering Functions ---
 function renderTestCaseList() {
     const container = document.getElementById('test-case-list');

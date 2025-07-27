@@ -59,19 +59,12 @@
         </div>
 
         <!-- Actions Tab (REVISED WORKFLOW) -->
+         <!-- Actions Tab -->
         <div id="actions" class="tab-content">
             <h2>Manage Actions</h2>
             <form id="action-form">
-                <label for="action-prompt">Prompt:</label>
-                <input type="text" id="action-prompt" placeholder="e.g., Click the logout button">
-
-                <!-- Generate button is back -->
-                <button type="button" class="btn-secondary" id="generate-json-btn" onclick="generateActionJson()">Generate Steps JSON</button>
-
-                <!-- Textarea is now visible for editing -->
-                <label for="action-steps">Steps JSON (editable):</label>
-                <textarea id="action-steps" rows="6" placeholder="Steps will be generated here..."></textarea>
-                
+                <input type="text" id="action-prompt" placeholder="Prompt (e.g., User login)">
+                <textarea id="action-steps" rows="5" placeholder='{"steps": [{"action": "input", "selector": "#username", "value": "user"}]}'></textarea>
                 <button type="button" id="add-action-btn" onclick="addAction()">Add Action</button>
             </form>
 
