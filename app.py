@@ -4,9 +4,11 @@ import os
 import json
 import re # Import regular expressions for JSON extraction
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+import traceback
 
-# ==============================================================================
+app = Flask(__name__, static_url_path='', template_folder="templates")
+
+
 # --- Helper Function for Robust JSON Extraction (CORRECTED) ---
 # ==============================================================================
 def extract_json_from_string(text):
@@ -29,10 +31,13 @@ def extract_json_from_string(text):
     # Return None if no JSON-like structure is found
     return None
 
-# --- Static File and Home Page Routes ---
+
+
+# FIXED: Complete route to serve all subpaths under /static/
 @app.route('/static/<path:path>')
 def serve_static(path):
-    """Serves static files (CSS, JS, and generated GIFs/PDFs)."""
+    print(f"[DEBUG] Serving static file: /static/{path}")  # Debug log
+
     return send_from_directory('static', path)
 
 @app.route("/")
@@ -120,7 +125,8 @@ def execute_test_run_route():
 4. Verify successful login by checking for a visible "Courses" tab. Retry once if it fails.
 5. After successful login, execute the following steps defined in the JSON:
 """
-    final_prompt = f"{pre_prompt}\n{prompt}"
+    
+    final_prompt = f"{pre_prompt} {prompt}"
 
     try:
         result = run_prompt(final_prompt)
@@ -131,16 +137,19 @@ def execute_test_run_route():
         }
 
         if result.get("gif_path"):
-            response["gif_url"] = "/" + result["gif_path"].replace("\\", "/")
+            response["gif_url"] = "/" + result["gif_path"]
+
         if result.get("pdf_path"):
-            response["pdf_url"] = "/" + result["pdf_path"].replace("\\", "/")
+            response["pdf_url"] = "/" + result["pdf_path"]
+
 
         return jsonify(response)
     except Exception as e:
+        print(f"[ERROR] Exception in /run: {str(e)}")  # NEW: Log error
+        print(traceback.format_exc())  # NEW: Full traceback
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # --- Application Startup ---
 if __name__ == "__main__":
-    os.makedirs("static/gifs", exist_ok=True)
-    os.makedirs("static/pdfs", exist_ok=True)
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5000)
+

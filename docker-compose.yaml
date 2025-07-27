@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app_static:/app/static  # Persists generated files
+      - ./playwright_cache:/root/.cache/ms-playwright  # Persists default cache
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env

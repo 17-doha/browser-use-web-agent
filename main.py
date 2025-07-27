@@ -24,14 +24,17 @@ class TestResult(BaseModel):
 
 def ensure_dirs():
     os.makedirs("static/screenshots", exist_ok=True)
+    print("[DEBUG] Created/ensured static/screenshots directory")
     os.makedirs("static/gifs", exist_ok=True)
+    print("[DEBUG] Created/ensured static/gifs directory")
     os.makedirs("static/pdfs", exist_ok=True)
+    print("[DEBUG] Created/ensured static/pdfs directory")
 
 def generate_gif_from_images(image_paths, output_path):
     images = [Image.open(img).convert("RGB") for img in image_paths if os.path.exists(img)]
     if len(images) >= 2:
         imageio.mimsave(output_path, images, fps=1)
-        print(f"[✔] GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")  # Debug: confirm size
+        print(f"[✔] GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")
     else:
         print("[!] Not enough images to create a GIF.")
 
@@ -52,7 +55,7 @@ def generate_pdf_from_result(structured_result, pdf_path):
     pdf.cell(200, 10, txt=f"Status: {structured_result.status}", ln=True)
 
     pdf.output(pdf_path)
-    print(f"[✔] PDF generated: {pdf_path} (size: {os.path.getsize(pdf_path)} bytes)")  # Debug: confirm size
+    print(f"[✔] PDF generated: {pdf_path} (size: {os.path.getsize(pdf_path)} bytes)")
 
 async def run_agent_task(prompt: str):
     ensure_dirs()
@@ -67,10 +70,18 @@ async def run_agent_task(prompt: str):
     stop_capture_flag = [False]
 
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=False)
+        try:
+            print("[DEBUG] Starting browser launch...")
+            browser = await playwright.chromium.launch(headless=True)
+            print("[DEBUG] Browser launched successfully")
+        except Exception as e:
+            print(f"[ERROR] Browser launch failed: {str(e)}")
+            raise  # Re-raise for app.py to catch
+
         context = await browser.new_context()
         page = await context.new_page()
         browser_session = BrowserSession(page=page)
+
 
         async def capture_loop():
             frame = 0
@@ -79,7 +90,7 @@ async def run_agent_task(prompt: str):
                     screenshot_path = os.path.join(screenshot_dir, f"frame_{frame}.png")
                     await page.screenshot(path=screenshot_path)
                     screenshots.append(screenshot_path)
-                    print(f"[+] Captured screenshot: {screenshot_path}")
+                    print(f"[+] Captured screenshot: {screenshot_path} (total: {len(screenshots)})")
                     frame += 1
                 except Exception as e:
                     print(f"[ERROR] Failed to capture screenshot: {e}")
@@ -117,8 +128,8 @@ async def run_agent_task(prompt: str):
     generate_gif_from_images(screenshots, gif_path)
 
     # Debug: Check if files exist
-    print(f"[DEBUG] GIF exists: {os.path.exists(gif_path)}")
-    print(f"[DEBUG] PDF exists: {os.path.exists(pdf_path)}")
+    print(f"[DEBUG] GIF exists: {os.path.exists(gif_path)} (path: {gif_path})")
+    print(f"[DEBUG] PDF exists: {os.path.exists(pdf_path)} (path: {pdf_path})")
 
     return {
         "text": structured_result.final_result,
