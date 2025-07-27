@@ -1,7 +1,17 @@
 # Stage 1: Install Playwright and browsers in a temp image
+# Stage 1
 FROM python:3.11-slim AS installer
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates && \
+    pip install playwright && \
+    playwright install-deps chromium && \
+    playwright install chromium && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install system dependencies
+
+# Stage 2: Main app image
+FROM python:3.11-slim
+
+# Install system dependencies (same as needed in Stage 1 for runtime)
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libatk-bridge2.0-0 \
@@ -25,17 +35,7 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libnspr4 \
     libpangocairo-1.0-0 \
-    wget \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Playwright and browsers
-RUN pip install playwright && \
-    playwright install-deps && \
-    playwright install chromium && \
-    echo "Playwright installed successfully"  # Debug
-
-# Stage 2: Main app image
-FROM python:3.11-slim
 
 # Copy Playwright cache from installer stage
 COPY --from=installer /root/.cache/ms-playwright /root/.cache/ms-playwright
@@ -43,7 +43,7 @@ COPY --from=installer /root/.cache/ms-playwright /root/.cache/ms-playwright
 # Set working directory
 WORKDIR /app
 
-# Copy and install requirements
+# Copy and install requirements (ensure it includes 'playwright' if needed)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -53,8 +53,9 @@ COPY . .
 # Create generated directories
 RUN mkdir -p static/screenshots static/gifs static/pdfs static/css static/js
 
-# Debug: Check browser cache
-RUN ls /root/.cache/ms-playwright/chromium-*/chrome-linux || echo "Browser cache missing!"
+# Optional: Add a non-root user for security
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
 
 # Expose port
 EXPOSE 5000

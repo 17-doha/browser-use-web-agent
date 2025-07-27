@@ -23,12 +23,12 @@ class TestResult(BaseModel):
     status: str = Field(description="Status: success or fail")
 
 def ensure_dirs():
-    os.makedirs("static/screenshots", exist_ok=True)
-    print("[DEBUG] Created/ensured static/screenshots directory")
-    os.makedirs("static/gifs", exist_ok=True)
-    print("[DEBUG] Created/ensured static/gifs directory")
-    os.makedirs("static/pdfs", exist_ok=True)
-    print("[DEBUG] Created/ensured static/pdfs directory")
+    os.makedirs("app_static/screenshots", exist_ok=True)
+    print("[DEBUG] Created/ensured app_static/screenshots directory")
+    os.makedirs("app_static/gifs", exist_ok=True)
+    print("[DEBUG] Created/ensured app_static/gifs directory")
+    os.makedirs("app_static/pdfs", exist_ok=True)
+    print("[DEBUG] Created/ensured app_static/pdfs directory")
 
 def generate_gif_from_images(image_paths, output_path):
     images = [Image.open(img).convert("RGB") for img in image_paths if os.path.exists(img)]
