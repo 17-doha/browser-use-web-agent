@@ -86,10 +86,26 @@ button {
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    transition: background-color 0.2s;
 }
 
 button:hover {
     background-color: #0056b3;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    margin-top: 5px; /* Spacing for the generate button */
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #5a6268;
 }
 
 table {
@@ -115,6 +131,8 @@ th {
 .dark th {
     background-color: #333333;
 }
+
+/* --- (All other styles including modal, badge, report-summary, etc., are unchanged) --- */
 
 .modal {
     display: none;
@@ -149,25 +167,16 @@ th {
     font-weight: bold;
 }
 
-.close:hover {
+.close:hover,
+.close:focus {
     color: black;
     text-decoration: none;
     cursor: pointer;
 }
 
-.dark .close:hover {
+.dark .close:hover,
+.dark .close:focus {
     color: white;
-}
-
-.report-item {
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-}
-
-.dark .report-item {
-    border-color: #444444;
 }
 
 .badge {
@@ -179,24 +188,6 @@ th {
 .badge-success { background-color: #28a745; color: white; }
 .badge-failure { background-color: #dc3545; color: white; }
 
-.progress {
-    height: 20px;
-    background-color: #f0f0f0;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    height: 100%;
-    background-color: #007bff;
-    transition: width 0.3s;
-}
-
-.dark .progress {
-    background-color: #333333;
-}
-
-/* Revised card styles */
 .test-case-list {
     display: flex;
     flex-direction: column;
@@ -232,9 +223,84 @@ th {
     cursor: pointer;
 }
 
-/* Modal styles (revised for test case view/edit) */
 .modal-content textarea {
     width: 100%;
     height: 200px;
     margin-top: 1rem;
+}
+
+.report-summary {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.summary-label {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.summary-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.summary-card button {
+    width: 100%;
+}
+
+#reports-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+#reports-table th, #reports-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+#reports-table th {
+    background-color: #f2f2f2;
+}
+
+.progress-bar-container {
+    display: inline-block;
+    width: 100px;
+    height: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-left: 10px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: #28a745; /* Green for success */
+    border-radius: 5px;
+    transition: width 0.5s ease-in-out;
+}
+
+.progress-bar-fill.failed {
+    background-color: #dc3545; /* Red for failure */
 }

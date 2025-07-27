@@ -40,8 +40,6 @@
 
             <h2>Existing Test Cases</h2>
             <div id="test-case-list" class="test-case-list"></div>
-
-            <button onclick="runTests()">Run All Tests</button>
         </div>
 
         <!-- Users Tab -->
@@ -60,12 +58,20 @@
             </table>
         </div>
 
-        <!-- Actions Tab -->
+        <!-- Actions Tab (REVISED WORKFLOW) -->
         <div id="actions" class="tab-content">
             <h2>Manage Actions</h2>
             <form id="action-form">
-                <input type="text" id="action-prompt" placeholder="Prompt (e.g., User login)">
-                <textarea id="action-steps" rows="5" placeholder='{"steps": [{"action": "input", "selector": "#username", "value": "user"}]}'></textarea>
+                <label for="action-prompt">Prompt:</label>
+                <input type="text" id="action-prompt" placeholder="e.g., Click the logout button">
+
+                <!-- Generate button is back -->
+                <button type="button" class="btn-secondary" id="generate-json-btn" onclick="generateActionJson()">Generate Steps JSON</button>
+
+                <!-- Textarea is now visible for editing -->
+                <label for="action-steps">Steps JSON (editable):</label>
+                <textarea id="action-steps" rows="6" placeholder="Steps will be generated here..."></textarea>
+                
                 <button type="button" id="add-action-btn" onclick="addAction()">Add Action</button>
             </form>
 
@@ -77,8 +83,32 @@
 
         <!-- Reports Tab -->
         <div id="reports" class="tab-content">
-            <h2>Test Run Reports</h2>
-            <div id="reports-list"></div>
+            <div class="report-summary">
+                <div class="summary-card">
+                    <span class="summary-label">Total Test Cases</span>
+                    <span id="total-test-cases" class="summary-value">0</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-label">Total Runs</span>
+                    <span id="total-runs" class="summary-value">0</span>
+                    <button onclick="runTests()">Run All Tests</button>
+                </div>
+            </div>
+            <h2>Test Execution Results</h2>
+            <table id="reports-table">
+                <thead>
+                    <tr>
+                        <th>Run Number</th>
+                        <th>Total Tests</th>
+                        <th>Failed Count</th>
+                        <th>Success Rate</th>
+                        <th>Execution Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="reports-table-body">
+                    <!-- Rows will be injected by JS -->
+                </tbody>
+            </table>
         </div>
 
         <!-- Modal for Editing/Viewing -->
