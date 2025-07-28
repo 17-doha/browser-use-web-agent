@@ -2,42 +2,42 @@ from flask import Flask, request, jsonify, send_from_directory
 from main import run_prompt
 import os
 import json
-import re # Import regular expressions for JSON extraction
-
+import re
 import traceback
 
 app = Flask(__name__, static_url_path='', template_folder="templates")
 
-
-# --- Helper Function for Robust JSON Extraction (CORRECTED) ---
-# ==============================================================================
+# --- Helper Function for Robust JSON Extraction ---
 def extract_json_from_string(text):
     """
     Finds and extracts the first valid JSON object string from a larger text block.
-    This is more robust and handles markdown fences and other text.
     """
-    # Pattern 1: Look for a `````` code block and extract its content
+    # Pattern 1: Look for a json code block and extract its content
     match = re.search(r"``````", text)
     if match:
-        # If a json code block is found, return the cleaned content
+        return match.group(1).strip()
+    
+    # Pattern 2: Look for any code block and extract its content
+    match = re.search(r"``````", text)
+    if match:
         return match.group(1).strip()
 
-    # Pattern 2: Fallback to find the first '{' to the last '}' in the entire string
-    # This is useful if the agent forgets the markdown fences.
+    # Pattern 3: Fallback to find the first '{' to the last '}' in the entire string
     match = re.search(r'(\{[\s\S]*\})', text)
     if match:
         return match.group(1).strip()
 
-    # Return None if no JSON-like structure is found
     return None
 
+# FIXED: Different function names for different routes
+@app.route('/app_static/<path:filename>')
+def serve_app_static(filename):
+    static_dir = os.path.join(os.getcwd(), 'app_static')
+    return send_from_directory(static_dir, filename)
 
-
-# FIXED: Complete route to serve all subpaths under /static/
 @app.route('/static/<path:path>')
-def serve_static(path):
-    print(f"[DEBUG] Serving static file: /static/{path}")  # Debug log
-
+def serve_static_files(path):
+    print(f"[DEBUG] Serving static file: /static/{path}")
     return send_from_directory('static', path)
 
 @app.route("/")
@@ -78,22 +78,18 @@ User Request: "{prompt}"
         print(result)
         raw_text = result.get("text", "")
 
-        # Use the NEW, more robust helper function
         json_string = extract_json_from_string(raw_text)
 
         if not json_string:
-            # This is the error you were seeing. It means no JSON was found.
             return jsonify({
                 "error": "The agent did not return a recognizable JSON object.",
-                "raw_output": raw_text # Sending back the raw output can help with debugging
+                "raw_output": raw_text
             }), 500
 
-        # Now, parse the clean JSON string
         generated_json = json.loads(json_string)
         return jsonify(generated_json)
 
     except json.JSONDecodeError:
-        # This error is a final fallback if the extracted string is still not valid JSON
         return jsonify({
             "error": "Failed to parse JSON from the agent. The extracted response was not valid JSON.",
             "raw_output": json_string
@@ -142,14 +138,11 @@ def execute_test_run_route():
         if result.get("pdf_path"):
             response["pdf_url"] = "/" + result["pdf_path"]
 
-
         return jsonify(response)
     except Exception as e:
-        print(f"[ERROR] Exception in /run: {str(e)}")  # NEW: Log error
-        print(traceback.format_exc())  # NEW: Full traceback
+        print(f"[ERROR] Exception in /run: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- Application Startup ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, port=5000)
-
