@@ -1,20 +1,9 @@
 // Initial Data
-let testCases = JSON.parse(localStorage.getItem('testCases')) || [
-    { id: 1, title: "Login and check dashboard", user: 'john_doe', actions: ['login', 'navigate_dashboard'], promptSteps: JSON.stringify({ steps: [ { action: 'login', data: { username: 'john_doe', password: 'test123' } }, { action: 'navigate_dashboard', data: { section: 'overview' } } ] }, null, 2), createdAt: new Date().toISOString(), status: 'pending', gif_path: null, pdf_url: null },
-    { id: 2, title: "Create and logout", user: 'jane_smith', actions: ['login', 'create_report', 'logout'], promptSteps: JSON.stringify({ steps: [ { action: 'login', data: { username: 'jane_smith', password: 'test456' } }, { action: 'create_report', data: { title: 'Monthly Report', type: 'summary' } }, { action: 'logout', data: {} } ] }, null, 2), createdAt: new Date().toISOString(), status: 'pending', gif_path: null, pdf_url: null }
-];
-
+let testCases = JSON.parse(localStorage.getItem('testCases')) || [];
 let testRuns = JSON.parse(localStorage.getItem('testRuns')) || [];
+let users = JSON.parse(localStorage.getItem('users')) || [];
+let actions = JSON.parse(localStorage.getItem('actions')) || [];
 
-let users = JSON.parse(localStorage.getItem('users')) || [
-    { id: 1, name: 'John Doe', email: 'john.doe@example.com', password: 'password123' },
-    { id: 2, name: 'Jane Smith', email: 'jane.smith@example.com', password: 'password456' },
-];
-
-let actions = JSON.parse(localStorage.getItem('actions')) || [
-    { id: 1, prompt: 'User login', stepsJson: JSON.stringify({ steps: [{ action: 'input', selector: '#username', value: 'user' }, { action: 'input', selector: '#password', value: 'pass' }, { action: 'click', selector: '#login-button' }] }, null, 2) },
-    { id: 2, prompt: 'Navigate to dashboard', stepsJson: JSON.stringify({ steps: [{ action: 'navigate', url: '/dashboard' }] }, null, 2) },
-];
 
 // Helper to save to localStorage
 function saveData() {
@@ -23,6 +12,7 @@ function saveData() {
     localStorage.setItem('users', JSON.stringify(users));
     localStorage.setItem('actions', JSON.stringify(actions));
 }
+
 
 // Tab Switching
 function openTab(tabId) {
@@ -37,14 +27,17 @@ function openTab(tabId) {
     if (tabId === 'reports') populateReports();
 }
 
+
 // Populate Dropdowns and Checkboxes
 function populateSelects() {
     const userSelect = document.getElementById('user-select');
     if(userSelect) userSelect.innerHTML = '<option value="">Choose User</option>' + users.map(user => `<option value="${user.name.replace(/ /g, '_').toLowerCase()}">${user.name}</option>`).join('');
 
+
     const actionsCheckboxes = document.getElementById('actions-checkboxes');
     if(actionsCheckboxes) actionsCheckboxes.innerHTML = actions.map(action => `<label><input type="checkbox" value="${action.prompt.replace(/ /g, '_').toLowerCase()}" onchange="toggleAction(this.value, this.checked)"> ${action.prompt}</label>`).join('');
 }
+
 
 // Selected Actions Handler
 let selectedActions = [];
@@ -54,11 +47,13 @@ function toggleAction(action, checked) {
         : selectedActions.filter(a => a !== action);
 }
 
+
 // Add Test Case
 function addTestCase() {
     const title = document.getElementById('test-title').value.trim();
     const user = document.getElementById('user-select').value;
     const promptSteps = document.getElementById('prompt-steps').value;
+
 
     if (!title || !user || !promptSteps.trim()) {
         alert('Please fill in title, user, and prompt steps!');
@@ -89,6 +84,7 @@ function addTestCase() {
     }
 }
 
+
 // --- Test Execution ---
 async function runTestById(testCaseId) {
     const tc = testCases.find(t => t.id === testCaseId);
@@ -104,28 +100,32 @@ async function runTestById(testCaseId) {
             body: JSON.stringify({ prompt: tc.promptSteps, username: email, password: password })
         });
         const data = await res.json();
+        // The backend returns 'success' or 'fail', which we use as the status
+        tc.status = res.ok ? data.test_status : 'fail';
         if (res.ok) {
-            tc.status = data.test_status;
             tc.gif_path = data.gif_url;
             tc.pdf_url = data.pdf_url;
-        } else {
-            tc.status = 'failed';
         }
-        return { testCaseId: tc.id, status: tc.status, gif_path: tc.gif_path, pdf_url: tc.pdf_url };
+        return { testCaseId: tc.id, status: tc.status };
     } catch (e) {
         console.error(`Run failed for test ${tc.id}:`, e);
-        tc.status = 'failed';
-        return { testCaseId: tc.id, status: 'failed' };
+        tc.status = 'fail'; // Standardize to 'fail'
+        return { testCaseId: tc.id, status: 'fail' };
     } finally {
         saveData();
         renderTestCaseList();
     }
 }
 
+
 async function runTest(id) {
     await runTestById(id);
 }
 
+
+// ====================================================================
+// --- CORRECTED runTests Function ---
+// ====================================================================
 async function runTests() {
     if (testCases.length === 0) {
         alert('No test cases to run!');
@@ -136,38 +136,43 @@ async function runTests() {
         const result = await runTestById(tc.id);
         if(result) results.push(result);
     }
+    
+    // THE FIX IS HERE: We now filter for 'success' and 'fail'
+    const passedCount = results.filter(r => r.status === 'success').length;
+    const failedCount = results.filter(r => r.status === 'fail').length;
+
     const newRun = {
         id: testRuns.length ? Math.max(...testRuns.map(r => r.id)) + 1 : 1,
         timestamp: new Date().toISOString(),
         totalTests: testCases.length,
-        passed: results.filter(r => r.status === 'passed').length,
-        failed: results.filter(r => r.status === 'failed').length,
+        passed: passedCount, // Use the correct count
+        failed: failedCount, // Use the correct count
         results
     };
-    testRuns.unshift(newRun); // Add to the beginning of the array
+    testRuns.unshift(newRun);
     saveData();
     populateReports();
     alert('All tests have been run!');
 }
 
-function deleteTestCase(id) {
-    if (confirm('Delete this test case?')) {
-        testCases = testCases.filter(t => t.id !== id);
-        saveData();
-        renderTestCaseList();
-    }
-}
+
 // --- Rendering Functions ---
+// ====================================================================
+// --- CORRECTED renderTestCaseList Function ---
+// ====================================================================
 function renderTestCaseList() {
     const container = document.getElementById('test-case-list');
     if(!container) return;
     container.innerHTML = testCases.length === 0
         ? '<div class="no-tests">No test cases created yet.</div>'
-        : testCases.map(tc => `
+        : testCases.map(tc => {
+            // THE FIX IS HERE: Check for 'success' and 'fail' to apply the correct badge class
+            const statusClass = tc.status === 'success' ? 'badge-success' : tc.status === 'fail' ? 'badge-failure' : '';
+            return `
             <div class="test-case-card">
                 <h3>${tc.title || 'Test Case #' + tc.id}</h3>
                 <p>User: ${tc.user} | Created: ${new Date(tc.createdAt).toLocaleDateString()}</p>
-                <p>Status: <span class="badge ${tc.status === 'passed' ? 'badge-success' : tc.status === 'failed' ? 'badge-failure' : ''}">${tc.status || 'Pending'}</span></p>
+                <p>Status: <span class="badge ${statusClass}">${tc.status || 'Pending'}</span></p>
                 <div class="buttons">
                     <button onclick="viewTestCase(${tc.id})">View</button>
                     <button onclick="editTestCase(${tc.id})">Edit</button>
@@ -176,8 +181,10 @@ function renderTestCaseList() {
                     ${tc.gif_path ? `<button onclick="showGif('${tc.gif_path}')">Show GIF</button>` : ''}
                     ${tc.pdf_url ? `<button onclick="downloadPdf('${tc.pdf_url}')">Download PDF</button>` : ''}
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
 }
+
 
 function renderUsers() {
     const tbody = document.querySelector('#users-table tbody');
@@ -194,6 +201,7 @@ function renderUsers() {
         </tr>`).join('');
 }
 
+
 function renderActions() {
     const tbody = document.querySelector('#actions-table tbody');
     if(!tbody) return;
@@ -208,34 +216,26 @@ function renderActions() {
         </tr>`).join('');
 }
 
+
 function populateReports() {
-    // Update the summary cards
     document.getElementById('total-test-cases').textContent = testCases.length;
     document.getElementById('total-runs').textContent = testRuns.length;
 
     const tbody = document.getElementById('reports-table-body');
     if (!tbody) return;
     
-    // Handle case with no test runs
     if (testRuns.length === 0) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No test runs recorded yet.</td></tr>`;
         return;
     }
 
-    // Generate table rows from testRuns data
     tbody.innerHTML = testRuns.map(run => {
-        // Calculate success rate, handle division by zero
         const successRate = run.totalTests > 0 ? (run.passed / run.totalTests) * 100 : 0;
-        
-        // Format the timestamp to be more readable
         const timestamp = new Date(run.timestamp).toLocaleString([], {
             year: 'numeric', month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit', hour12: false
         }).replace(',', '');
-
-        // Determine the class for the progress bar based on success rate
         const progressBarClass = successRate < 60 ? 'failed' : '';
-
         return `
             <tr>
                 <td>#${run.id}</td>
@@ -252,6 +252,7 @@ function populateReports() {
         `;
     }).join('');
 }
+
 
 // --- CRUD for Users and Actions ---
 function addUser() {
@@ -280,60 +281,47 @@ function deleteUser(id) {
     }
 }
 
-// --- UPDATED Actions Workflow ---
-// Step 1: Generate JSON from prompt and populate the textarea
 async function generateActionJson() {
     const prompt = document.getElementById('action-prompt').value.trim();
-    if (!prompt) {
-        return alert('Please enter a prompt first!');
-    }
-
-    const generateButton = document.getElementById('generate-json-btn');
-    generateButton.disabled = true;
-    generateButton.textContent = 'Generating...';
-
+    if (!prompt) return alert('Please enter a prompt first!');
+    
+    const btn = document.getElementById('generate-json-btn');
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    
     try {
-        const response = await fetch('/generate-action-json', {
+        const res = await fetch('/generate-action-json', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: prompt }),
+            body: JSON.stringify({ prompt })
         });
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || `HTTP error! Status: ${response.status}`);
-        }
-        // Populate the textarea with the formatted JSON
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to generate JSON');
         document.getElementById('action-steps').value = JSON.stringify(data, null, 2);
-    } catch (error) {
-        console.error('Error generating action JSON:', error);
-        alert(`Failed to generate JSON: ${error.message}`);
+    } catch (e) {
+        alert(`Error: ${e.message}`);
     } finally {
-        generateButton.disabled = false;
-        generateButton.textContent = 'Generate Steps JSON';
+        btn.disabled = false;
+        btn.textContent = 'Generate Steps JSON';
     }
 }
 
-// Step 2: Add the action using the (potentially edited) content of the form
 function addAction() {
     const prompt = document.getElementById('action-prompt').value.trim();
     const stepsJson = document.getElementById('action-steps').value.trim();
-
-    if (!prompt || !stepsJson) {
-        return alert('Please enter a prompt and then generate the steps JSON.');
-    }
+    if (!prompt || !stepsJson) return alert('Please enter a prompt and generate/provide steps JSON.');
 
     try {
-        JSON.parse(stepsJson); // Validate JSON before saving
+        JSON.parse(stepsJson);
     } catch (e) {
-        return alert('The Steps JSON is not valid. Please check the formatting or generate it again.');
+        return alert('The provided Steps JSON is not valid.');
     }
-
+    
     const newAction = {
         id: actions.length ? Math.max(...actions.map(a => a.id)) + 1 : 1,
         prompt,
         stepsJson
     };
-
     actions.push(newAction);
     saveData();
     renderActions();
@@ -490,6 +478,13 @@ function saveModalChanges() {
     closeModal();
 }
 
+function deleteTestCase(id) {
+    if (confirm('Delete this test case?')) {
+        testCases = testCases.filter(t => t.id !== id);
+        saveData();
+        renderTestCaseList();
+    }
+}
 function closeModal() {
     document.getElementById('modal').style.display = 'none';
 }

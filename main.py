@@ -31,12 +31,48 @@ def ensure_dirs():
     print("[DEBUG] Created/ensured app_static/pdfs directory")
 
 def generate_gif_from_images(image_paths, output_path):
-    images = [Image.open(img).convert("RGB") for img in image_paths if os.path.exists(img)]
+    images = []
+    target_size = None
+    
+    # First pass: determine the target size (use the first valid image)
+    for img_path in image_paths:
+        if os.path.exists(img_path):
+            try:
+                img = Image.open(img_path).convert("RGB")
+                if target_size is None:
+                    target_size = img.size
+                break
+            except Exception as e:
+                print(f"[!] Failed to open {img_path}: {e}")
+                continue
+    
+    if target_size is None:
+        print("[!] No valid images found to determine target size.")
+        return
+    
+    # Second pass: resize all images to the target size
+    for img_path in image_paths:
+        if os.path.exists(img_path):
+            try:
+                img = Image.open(img_path).convert("RGB")
+                # Resize image to target size if it doesn't match
+                if img.size != target_size:
+                    img = img.resize(target_size, Image.Resampling.LANCZOS)
+                    print(f"[→] Resized {img_path} from original size to {target_size}")
+                images.append(img)
+            except Exception as e:
+                print(f"[!] Failed to process {img_path}: {e}")
+                continue
+    
     if len(images) >= 2:
-        imageio.mimsave(output_path, images, fps=1)
-        print(f"[✔] GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")
+        try:
+            imageio.mimsave(output_path, images, fps=1)
+            print(f"[✔] GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")
+        except Exception as e:
+            print(f"[ERROR] Failed to create GIF: {e}")
     else:
         print("[!] Not enough images to create a GIF.")
+
 
 def generate_pdf_from_result(structured_result, pdf_path):
     pdf = FPDF()
@@ -61,10 +97,10 @@ async def run_agent_task(prompt: str):
     ensure_dirs()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    screenshot_dir = os.path.join("static/screenshots", f"run_{timestamp}")
+    screenshot_dir = os.path.join("app_static/screenshots", f"run_{timestamp}")
     os.makedirs(screenshot_dir, exist_ok=True)
-    gif_path = f"static/gifs/test_{timestamp}.gif"
-    pdf_path = f"static/pdfs/test_{timestamp}.pdf"
+    gif_path = f"app_static/gifs/test_{timestamp}.gif"
+    pdf_path = f"app_static/pdfs/test_{timestamp}.pdf"
     screenshots = []
 
     stop_capture_flag = [False]
