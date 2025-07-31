@@ -1,4 +1,4 @@
-# Browser Automation Test Suite
+# AI-Powered Testing Automation
 
 A comprehensive web application for creating, managing, and executing automated browser tests using AI-powered agents. This tool allows you to convert natural language instructions into structured test cases and run them against web applications with visual feedback.
 
