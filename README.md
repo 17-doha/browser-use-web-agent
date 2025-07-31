@@ -132,45 +132,28 @@ Content-Type: application/json
 
 ## File Structure
 
-browser-automation-suite/
-│
-├── 📱 Core Application
-│ ├── app.py # Flask web server and API endpoints
-│ ├── main.py # Browser automation engine and AI agent logic
-│ └── requirements.txt # Python package dependencies
-│
-├── 🐳 Container Configuration
-│ ├── Dockerfile # Container build instructions
-│ └── docker-compose.yaml # Multi-container orchestration
-│
-├── 🌐 Frontend Assets
-│ ├── templates/
-│ │ └── index.html # Main web interface and UI components
-│ └── static/
-│ ├── styles.css # Application styling and responsive design
-│ └── script.js # Frontend JavaScript logic and API calls
-│
-├── 📁 Generated Content
-│ └── app_static/
-│ ├── screenshots/ # Test execution screenshots (timestamped folders)
-│ │ └── YYYY-MM-DD_HH-MM-SS/
-│ │ ├── step_1.png
-│ │ ├── step_2.png
-│ │ └── ...
-│ ├── gifs/ # Animated test execution recordings
-│ │ ├── test_run_1.gif
-│ │ └── test_run_2.gif
-│ └── pdfs/ # Detailed test result reports
-│ ├── report_1.pdf
-│ └── report_2.pdf
-│
-├── ⚙️ Configuration
-│ └── .env # Environment variables (API keys, settings)
-│
-└── 📋 Documentation
-└── README.md # Project documentation and setup guide
+#  browser-automation-suite
 
-
+##  Core Application
+- `app.py` – Flask web server and API endpoints  
+- `main.py` – Browser automation engine and AI agent logic  
+- `requirements.txt` – Python package dependencies  
+- `Dockerfile` – Container build instructions  
+- `docker-compose.yaml` – Multi-container orchestration  
+- `templates/`
+  - `index.html` – Main web interface and UI components  
+- `static/`
+    - `screenshots/`
+     - `gifs/` 
+      - `pdfs/`
+- `app_static/`
+  - `screenshots/`
+  - `gifs/` 
+  - `pdfs/`
+  - `styles.css` – Application styling and responsive design  
+  - `script.js` – Frontend JavaScript logic and API calls  
+- `.env` – Environment variables (API keys, settings)  
+- `README.md` – Project documentation and setup guide
 
 ## Configuration
 
