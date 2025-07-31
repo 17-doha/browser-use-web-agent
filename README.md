@@ -193,23 +193,7 @@ All application data is stored in browser localStorage:
 - Verify write permissions in the `app_static` directory
 - Check available disk space for screenshot and media storage
 
-### Development Mode
-
-To run in development mode with live reloading:
-export FLASK_ENV=development
-python app.py
-
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
 ## License
 
 This project is available under the MIT License. See the LICENSE file for more details.
 
-**Note**: This tool is designed for testing purposes. Ensure you have proper authorization before running automated tests against any web applications. Store credentials securely and follow responsible testing practices.
