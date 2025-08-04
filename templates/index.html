@@ -12,12 +12,13 @@
         <p>Manage test cases, users, actions, and view execution reports</p>
 
         <!-- Tabs Navigation -->
-        <div class="tabs">
-            <button class="tab-button active" onclick="openTab('test-cases')">Test Cases</button>
-            <button class="tab-button" onclick="openTab('users')">Users</button>
-            <button class="tab-button" onclick="openTab('actions')">Actions</button>
-            <button class="tab-button" onclick="openTab('reports')">Test Run Reports</button>
-        </div>
+        <div class="tab-container">
+    <button class="tab-button active" onclick="app.openTab('test-cases')">Test Cases</button>
+    <button class="tab-button" onclick="app.openTab('users')">Users</button>
+    <button class="tab-button" onclick="app.openTab('actions')">Actions</button>
+    <button class="tab-button" onclick="app.openTab('reports')">Reports</button>
+</div>
+
 
         <!-- Test Cases Tab -->
         <div id="test-cases" class="tab-content active">
@@ -35,46 +36,52 @@
                 <label for="prompt-steps">Prompt Steps JSON:</label>
                 <textarea id="prompt-steps" rows="5" placeholder='{"steps": [{"action": "login", "data": {...}}]}'></textarea>
 
-                <button type="button" onclick="addTestCase()">Add Test Case</button>
+                <button type="button" onclick="app.addTestCase()">Add Test Case</button>
+
             </form>
 
             <h2>Existing Test Cases</h2>
             <div id="test-case-list" class="test-case-list"></div>
+
+            <button onclick="runTests()">Run All Tests</button>
         </div>
 
         <!-- Users Tab -->
         <div id="users" class="tab-content">
             <h2>Manage Users</h2>
-            <form id="user-form">
-                <input type="text" id="user-name" placeholder="Name">
-                <input type="email" id="user-email" placeholder="Email">
-                <input type="password" id="user-password" placeholder="Password">
-                <button type="button" id="add-user-btn" onclick="addUser()">Add User</button>
-            </form>
+            <form id="register-form">
+            <input type="text" id="register-name" placeholder="Name" required>
+            <input type="email" id="register-email" placeholder="Email" required>
+            <input type="password" id="register-password" placeholder="Password" required>
+            <button type="submit">Add User</button>
+        </form>
 
-            <table id="users-table">
-                <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
-                <tbody></tbody>
-            </table>
+
+             <div id="users-list"></div>
         </div>
+       
 
-        <!-- Actions Tab (REVISED WORKFLOW) -->
-         <!-- Actions Tab -->
+
+        <!-- Actions Tab -->
         <div id="actions" class="tab-content">
-            <h2>Manage Actions</h2>
-            <form id="action-form">
-                <input type="text" id="action-prompt" placeholder="Prompt (e.g., User login)">
-                <textarea id="action-steps" rows="5" placeholder='{"steps": [{"action": "input", "selector": "#username", "value": "user"}]}'></textarea>
-                <button type="button" id="add-action-btn" onclick="addAction()">Add Action</button>
-            </form>
+            <h2>Actions Management</h2>
+            <div class="form-section">
+                <form id="action-form" autocomplete="off" spellcheck="false" novalidate>
+                <label for="action-prompt">Action Prompt:</label>
+                <input type="text" id="action-prompt" required />
 
-            <table id="actions-table">
-                <thead><tr><th>ID</th><th>Prompt</th><th>Actions</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
+                <label for="action-steps">Steps JSON:</label>
+                <textarea id="action-steps" rows="5" placeholder='{"steps": [{"action": "click","selector": "#btn"}]}' required></textarea>
+                <button type="button" onclick="app.addAction()">Add Action</button>
+                </form>
+            </div>
 
-        <!-- Reports Tab -->
+            <!-- Actions table will be rendered here -->
+            <div id="actions-list"></div>
+            </div>
+
+
+       <!-- Reports Tab -->
         <div id="reports" class="tab-content">
             <div class="report-summary">
                 <div class="summary-card">
@@ -84,7 +91,8 @@
                 <div class="summary-card">
                     <span class="summary-label">Total Runs</span>
                     <span id="total-runs" class="summary-value">0</span>
-                    <button onclick="runTests()">Run All Tests</button>
+                    <button onclick="app.runTests()">Run All Tests</button>
+
                 </div>
             </div>
             <h2>Test Execution Results</h2>
@@ -104,15 +112,17 @@
             </table>
         </div>
 
+
         <!-- Modal for Editing/Viewing -->
         <div id="modal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h2 id="modal-title"></h2>
-                <form id="modal-form"></form>
-                <button id="modal-save" onclick="saveModalChanges()">Save</button>
-            </div>
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal()">&times;</span>
+            <h3 id="modal-title">Edit</h3>
+            <div id="modal-form"><!-- Populated by JS --></div>
+            <button id="modal-save" onclick="app.saveModalChanges()">Save</button>
         </div>
+        </div>
+
     </div>
 
     <script src="app_static/js/script.js"></script>

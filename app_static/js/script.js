@@ -1,371 +1,807 @@
-// Initial Data
-let testCases = JSON.parse(localStorage.getItem('testCases')) || [];
-let testRuns = JSON.parse(localStorage.getItem('testRuns')) || [];
-let users = JSON.parse(localStorage.getItem('users')) || [];
-let actions = JSON.parse(localStorage.getItem('actions')) || [];
+class BrowserUseWebAgent {
+    constructor() {
+        this.testCases = [];
+        this.users = [];
+        this.actions = [];
+        this.testRuns = [];
+        this.currentUser = null;
+        this.selectedActions = [];
+        this.init();
+    }
 
+    async init() {
+        await this.loadCurrentUser();
+        await this.loadData();
+        this.setupEventListeners();
+        this.openTab('test-cases');
+    }
 
-// Helper to save to localStorage
-function saveData() {
-    localStorage.setItem('testCases', JSON.stringify(testCases));
-    localStorage.setItem('testRuns', JSON.stringify(testRuns));
-    localStorage.setItem('users', JSON.stringify(users));
-    localStorage.setItem('actions', JSON.stringify(actions));
+    async loadCurrentUser() {
+        const userId = localStorage.getItem('currentUserId');
+        if (userId) {
+            try {
+                const response = await fetch(`/api/users/${userId}`);
+                if (response.ok) {
+                    this.currentUser = await response.json();
+                    this.showUserInfo();
+                }
+            } catch (error) {
+                console.error('Failed to load user:', error);
+            }
+        }
+    }
+
+    async loadData() {
+        await Promise.all([
+            this.loadTestCases(),
+            this.loadUsers(),
+            this.loadActions(),
+            this.loadTestRuns()
+        ]);
+        this.renderAll();
+    }
+
+    async loadTestCases() {
+        try {
+            const url = this.currentUser 
+                ? `/api/test_cases?user_id=${this.currentUser.id}`
+                : '/api/test_cases';
+            const response = await fetch(url);
+            this.testCases = await response.json();
+        } catch (error) {
+            console.error('Failed to load test cases:', error);
+            this.testCases = [];
+        }
+    }
+
+    async loadUsers() {
+        try {
+            const response = await fetch('/api/users');
+            if (response.ok) {
+                this.users = await response.json();
+            }
+        } catch (error) {
+            console.error('Failed to load users:', error);
+            this.users = [];
+        }
+    }
+
+    async loadActions() {
+        try {
+            const response = await fetch('/api/actions');
+            if (response.ok) {
+                this.actions = await response.json();
+            }
+        } catch (error) {
+            console.error('Failed to load actions:', error);
+            this.actions = [];
+        }
+    }
+
+    async loadTestRuns() {
+        try {
+            const response = await fetch('/api/test_runs');
+            if (response.ok) {
+                this.testRuns = await response.json();
+            }
+        } catch (error) {
+            console.error('Failed to load test runs:', error);
+            this.testRuns = [];
+        }
+    }
+
+    // Authentication methods
+    async login(email, password) {
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email, password })
+            });
+            
+            if (response.ok) {
+                const userData = await response.json();
+                userData.raw_password = password;      // <-- Add this line!
+                this.currentUser = userData;
+                localStorage.setItem('currentUserId', this.currentUser.id);
+                await this.loadData();
+                this.showUserInfo();
+                return true;
+
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Login failed');
+                return false;
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed');
+            return false;
+        }
+    }
+
+    async register(name, email, password) {
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, email, password })
+            });
+            
+            if (response.ok) {
+                alert('New User Added Successfully');
+                return true;
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Registration failed');
+                return false;
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            alert('Registration failed');
+            return false;
+        }
+    }
+
+    logout() {
+        this.currentUser = null;
+        localStorage.removeItem('currentUserId');
+        this.testCases = [];
+        this.hideUserInfo();
+        this.renderAll();
+    }
+
+    showUserInfo() {
+        const userInfo = document.getElementById('user-info');
+        if (userInfo && this.currentUser) {
+            userInfo.innerHTML = `
+                <span>Logged in as: ${this.currentUser.name}</span>
+                <button onclick="app.logout()">Logout</button>
+            `;
+            userInfo.style.display = 'block';
+        }
+    }
+
+    hideUserInfo() {
+        const userInfo = document.getElementById('user-info');
+        if (userInfo) {
+            userInfo.style.display = 'none';
+        }
+    }
+
+    // CRUD operations
+    async saveTestCase(testCase) {
+    try {
+        if (testCase.id) {
+            const response = await fetch(`/api/test_cases/${testCase.id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(testCase)
+            });
+            return await response.json();
+        } else {
+            // Remove this line: testCase.user_id = this.currentUser?.id || null;
+            const response = await fetch('/api/test_cases', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(testCase)
+            });
+            return await response.json();
+        }
+    } catch (error) {
+        console.error('Failed to save test case:', error);
+        throw error;
+    }
+}
+    async deleteAction(id) {
+    if (!confirm('Are you sure you want to delete this action?')) return;
+    try {
+        const response = await fetch(`/api/actions/${id}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.error || 'Failed to delete action');
+            return;
+        }
+        await this.loadActions();
+        this.renderActions();
+        this.populateSelects();
+    } catch (error) {
+        alert('Error deleting action!');
+        console.error(error);
+    }
 }
 
 
-// Tab Switching
-function openTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    document.querySelector(`[onclick="openTab('${tabId}')"]`).classList.add('active');
-    // Refresh content when tab is opened
-    if (tabId === 'test-cases') renderTestCaseList();
-    if (tabId === 'users') renderUsers();
-    if (tabId === 'actions') renderActions();
-    if (tabId === 'reports') populateReports();
+    async deleteTestCase(caseId) {
+        if (!confirm('Delete this test case?')) return;
+        
+        try {
+            await fetch(`/api/test_cases/${caseId}`, {
+                method: 'DELETE'
+            });
+            await this.loadTestCases();
+            this.renderTestCaseList();
+        } catch (error) {
+            console.error('Failed to delete test case:', error);
+        }
+    }
+
+
+    async deleteUser(id) {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    try {
+        const response = await fetch(`/api/users/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.error || 'Failed to delete user');
+            return;
+        }
+        // Refresh the users list and UI
+        await this.loadUsers();
+        this.renderUsers();
+        this.populateSelects();
+    } catch (error) {
+        alert('Error deleting user!');
+        console.error(error);
+    }
+}
+
+    async saveAction(action) {
+    try {
+        const response = await fetch('/api/actions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(action)
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to save action:', error);
+        throw error;
+    }
 }
 
 
-// Populate Dropdowns and Checkboxes
-function populateSelects() {
-    const userSelect = document.getElementById('user-select');
-    if(userSelect) userSelect.innerHTML = '<option value="">Choose User</option>' + users.map(user => `<option value="${user.name.replace(/ /g, '_').toLowerCase()}">${user.name}</option>`).join('');
+    async saveTestRun(testRun) {
+        try {
+            const response = await fetch('/api/test_runs', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(testRun)
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to save test run:', error);
+            throw error;
+        }
+    }
+
+    // UI Event Handlers
+    setupEventListeners() {
+        // Login form
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                await this.login(email, password);
+            });
+        }
+
+        // Register form
+        const registerForm = document.getElementById('register-form');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('register-name').value;
+                const email = document.getElementById('register-email').value;
+                const password = document.getElementById('register-password').value;
+                await this.register(name, email, password);
+            });
+        }
+        const testCaseForm = document.getElementById('test-case-form');
+        if (testCaseForm) {
+            testCaseForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.addTestCase(); // Should call the class method
+            });
+        }
 
 
-    const actionsCheckboxes = document.getElementById('actions-checkboxes');
-    if(actionsCheckboxes) actionsCheckboxes.innerHTML = actions.map(action => `<label><input type="checkbox" value="${action.prompt.replace(/ /g, '_').toLowerCase()}" onchange="toggleAction(this.value, this.checked)"> ${action.prompt}</label>`).join('');
-}
+        // Other event listeners
+        document.getElementById('test-case-form')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.addTestCase();
+        });
+
+        // Modal save button
+        document.getElementById('modal-save')?.addEventListener('click', () => {
+            this.saveModalChanges();
+        });
+
+        // Window click to close modal
+        window.onclick = (event) => {
+            if (event.target === document.getElementById('modal')) {
+                this.closeModal();
+            }
+        };
+    }
+
+    // Core functionality
+    populateSelects() {
+  const userSelect = document.getElementById('user-select');
+  if (userSelect && this.users.length) {
+    userSelect.innerHTML = '<option value="">Select user</option>' + 
+      this.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+  }
 
 
-// Selected Actions Handler
-let selectedActions = [];
-function toggleAction(action, checked) {
-    selectedActions = checked 
-        ? [...selectedActions, action] 
-        : selectedActions.filter(a => a !== action);
-}
+        const actionsCheckboxes = document.getElementById('actions-checkboxes');
+        if (actionsCheckboxes) {
+            actionsCheckboxes.innerHTML = this.actions.map(action => `
+                <label>
+                    <input type="checkbox" value="${action.prompt.replace(/ /g, '_').toLowerCase()}" 
+                           onchange="app.toggleAction('${action.prompt}', this.checked)">
+                    ${action.prompt}
+                </label>
+            `).join('');
+        }
+    }
+
+    toggleAction(action, checked) {
+        this.selectedActions = checked 
+            ? [...this.selectedActions, action] 
+            : this.selectedActions.filter(a => a !== action);
+        this.updatePromptStepsTextarea();
+    }
+
+    updatePromptStepsTextarea() {
+        const textarea = document.getElementById('prompt-steps');
+        if (!textarea) return;
+
+        const checkedBoxes = document.querySelectorAll('#actions-checkboxes input:checked');
+        const selectedPrompts = Array.from(checkedBoxes).map(cb => cb.value);
+
+        if (selectedPrompts.length === 0) {
+            textarea.value = '';
+            return;
+        }
+
+        const selectedActionObjs = this.actions.filter(action => 
+            selectedPrompts.includes(action.prompt.replace(/ /g, '_').toLowerCase())
+        );
+
+        let allSteps = [];
+        selectedActionObjs.forEach(action => {
+            try {
+                const parsed = JSON.parse(action.steps_json);
+                if (Array.isArray(parsed.steps)) {
+                    allSteps = allSteps.concat(parsed.steps);
+                }
+            } catch (e) {
+                console.error('Invalid JSON in action steps:', e);
+            }
+        });
+
+        textarea.value = JSON.stringify({ steps: allSteps }, null, 2);
+    }
+    async addAction() {
+        const prompt = document.getElementById('action-prompt').value.trim();
+        const stepsJson = document.getElementById('action-steps').value.trim();
+
+        if (!prompt || !stepsJson) {
+            alert('Please fill in all fields!');
+            return;
+        }
+
+        try {
+            JSON.parse(stepsJson); // Validate JSON
+
+            const newAction = {
+            prompt,
+            steps_json: stepsJson,
+            };
+
+            await this.saveAction(newAction);      // Send to backend
+            await this.loadActions();              // Reload actions list
+            this.renderActions();                  // Render updated list
+            this.populateSelects();                // Update selects/checkboxes that use actions
+
+            document.getElementById('action-form').reset();
+            alert('Action added successfully!');
+        } catch (e) {
+            alert('Invalid JSON in Steps!');
+        }
+        }
 
 
-// Add Test Case
-function addTestCase() {
+
+async addTestCase() {
     const title = document.getElementById('test-title').value.trim();
-    const user = document.getElementById('user-select').value;
-    const promptSteps = document.getElementById('prompt-steps').value;
+    const userSelect = document.getElementById('user-select');
+    const userId = userSelect.value; // This is the UUID
 
-
-    if (!title || !user || !promptSteps.trim()) {
-        alert('Please fill in title, user, and prompt steps!');
+    if (!title) {
+        alert('Please enter a test case title');
         return;
     }
+    if (!userId) {
+        alert('Please select a user');
+        return;
+    }
+
+    const checkedBoxes = document.querySelectorAll('#actions-checkboxes input[type="checkbox"]:checked');
+    const actions = [...checkedBoxes].map(cb => cb.value);
+
+    const promptStepsText = document.getElementById('prompt-steps').value.trim();
+    let promptStepsJson;
     try {
-        JSON.parse(promptSteps);
-        const newTestCase = {
-            id: testCases.length ? Math.max(...testCases.map(tc => tc.id)) + 1 : 1,
-            title,
-            user,
-            actions: [...selectedActions],
-            promptSteps,
-            createdAt: new Date().toISOString(),
-            status: 'pending',
-            gif_path: null,
-            pdf_url: null
-        };
-        testCases.push(newTestCase);
-        saveData();
-        selectedActions = [];
-        document.getElementById('test-case-form').reset();
-        document.querySelectorAll('#actions-checkboxes input').forEach(cb => cb.checked = false);
-        renderTestCaseList();
-        alert('Test case added!');
+        promptStepsJson = JSON.parse(promptStepsText);
     } catch (e) {
-        alert('Invalid JSON in Prompt Steps!');
+        alert('Invalid JSON in prompt steps');
+        return;
+    }
+
+    const testCase = {
+        title,
+        user_id: userId,
+        actions,
+        prompt_steps: promptStepsJson,
+        status: 'pending'
+    };
+    console.log("Test case payload:", testCase);
+
+
+    try {
+        await this.saveTestCase(testCase);
+        await this.loadTestCases();
+        this.renderTestCaseList();
+        alert('Test case added successfully!');
+    } catch (e) {
+        alert('Error saving test case: ' + e.message);
     }
 }
 
 
-// --- Test Execution ---
-async function runTestById(testCaseId) {
-    const tc = testCases.find(t => t.id === testCaseId);
-    if (!tc) return null;
+
+
+
+
+
+    // Test execution
+async runTest(id) {
+    const tc = this.testCases.find(t => t.id === id);
+    if (!tc) return;
+    tc.status = 'running';
+    await this.saveTestCase(tc);
+    this.renderTestCaseList();
+
+    // -> Look up user at run-time!
+    const userObj = this.users.find(u => u.id === tc.user_id);
+    const email = userObj ? userObj.email : '';
+    const password = userObj ? userObj.password : '';
+
+    if (!email || !password) {
+        alert('No credentials found for test case’s user.');
+        tc.status = 'fail';
+        await this.saveTestCase(tc);
+        this.renderTestCaseList();
+        return;
+    }
 
     try {
-        const userObj = users.find(u => u.name.replace(/ /g, '_').toLowerCase() === tc.user);
-        const email = userObj ? userObj.email : '';
-        const password = userObj ? userObj.password : '';
         const res = await fetch('/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: tc.promptSteps, username: email, password: password })
+            body: JSON.stringify({
+                prompt: tc.prompt_steps,
+                username: email,
+                password: password
+            })
         });
         const data = await res.json();
-        // The backend returns 'success' or 'fail', which we use as the status
         tc.status = res.ok ? data.test_status : 'fail';
+
         if (res.ok) {
             tc.gif_path = data.gif_url;
             tc.pdf_url = data.pdf_url;
         }
-        return { testCaseId: tc.id, status: tc.status };
+
+        await this.saveTestCase(tc);
+        this.renderTestCaseList();
     } catch (e) {
-        console.error(`Run failed for test ${tc.id}:`, e);
-        tc.status = 'fail'; // Standardize to 'fail'
-        return { testCaseId: tc.id, status: 'fail' };
-    } finally {
-        saveData();
-        renderTestCaseList();
+        console.error('Test run failed:', e);
+        tc.status = 'fail';
+        await this.saveTestCase(tc);
+        this.renderTestCaseList();
     }
 }
 
 
-async function runTest(id) {
-    await runTestById(id);
+
+
+    // Tab switching
+    openTab(tabId) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    // Remove active from all tab buttons
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    // Show the selected tab
+    document.getElementById(tabId).classList.add('active');
+    // Add active to the clicked tab button
+    const buttons = document.querySelectorAll('.tab-button');
+    buttons.forEach(btn => {
+        if (btn.getAttribute('onclick') === `app.openTab('${tabId}')`)
+            btn.classList.add('active');
+    });
+
+    // (Optional) Render content for the tab
+    if (tabId === 'test-cases') this.renderTestCaseList();
+    if (tabId === 'users') this.renderUsers();
+    if (tabId === 'actions') this.renderActions();
+    if (tabId === 'reports') this.populateReports();
 }
 
 
-// ====================================================================
-// --- CORRECTED runTests Function ---
-// ====================================================================
-async function runTests() {
-    if (testCases.length === 0) {
-        alert('No test cases to run!');
-        return;
+    // Rendering methods
+    renderAll() {
+        this.renderTestCaseList();
+        this.renderUsers();
+        this.renderActions();
+        this.populateReports();
+        this.populateSelects();
     }
-    const results = [];
-    for (let tc of testCases) {
-        const result = await runTestById(tc.id);
-        if(result) results.push(result);
-    }
-    
-    // THE FIX IS HERE: We now filter for 'success' and 'fail'
-    const passedCount = results.filter(r => r.status === 'success').length;
-    const failedCount = results.filter(r => r.status === 'fail').length;
 
-    const newRun = {
-        id: testRuns.length ? Math.max(...testRuns.map(r => r.id)) + 1 : 1,
-        timestamp: new Date().toISOString(),
-        totalTests: testCases.length,
-        passed: passedCount, // Use the correct count
-        failed: failedCount, // Use the correct count
-        results
-    };
-    testRuns.unshift(newRun);
-    saveData();
-    populateReports();
-    alert('All tests have been run!');
-}
+    renderTestCaseList() {
+        const container = document.getElementById('test-case-list');
+        if (!container) return;
 
+        if (this.testCases.length === 0) {
+            container.innerHTML = '<p>No test cases found.</p>';
+            return;
+        }
 
-// --- Rendering Functions ---
-// ====================================================================
-// --- CORRECTED renderTestCaseList Function ---
-// ====================================================================
-function renderTestCaseList() {
-    const container = document.getElementById('test-case-list');
-    if(!container) return;
-    container.innerHTML = testCases.length === 0
-        ? '<div class="no-tests">No test cases created yet.</div>'
-        : testCases.map(tc => {
-            // THE FIX IS HERE: Check for 'success' and 'fail' to apply the correct badge class
-            const statusClass = tc.status === 'success' ? 'badge-success' : tc.status === 'fail' ? 'badge-failure' : '';
-            return `
+        container.innerHTML = this.testCases.map(tc => `
             <div class="test-case-card">
-                <h3>${tc.title || 'Test Case #' + tc.id}</h3>
-                <p>User: ${tc.user} | Created: ${new Date(tc.createdAt).toLocaleDateString()}</p>
-                <p>Status: <span class="badge ${statusClass}">${tc.status || 'Pending'}</span></p>
+                <h3>${tc.title}</h3>
+                <p>User: ${tc.user || 'N/A'} | Created: ${new Date(tc.created_at).toLocaleDateString()}</p>
+                <p>Status: <span class="badge badge-${tc.status === 'success' ? 'success' : 'failure'}">${tc.status || 'Pending'}</span></p>
                 <div class="buttons">
-                    <button onclick="viewTestCase(${tc.id})">View</button>
-                    <button onclick="editTestCase(${tc.id})">Edit</button>
-                    <button onclick="runTest(${tc.id})">Run</button>
-                    <button onclick="deleteTestCase(${tc.id})">Delete</button>
-                    ${tc.gif_path ? `<button onclick="showGif('${tc.gif_path}')">Show GIF</button>` : ''}
-                    ${tc.pdf_url ? `<button onclick="downloadPdf('${tc.pdf_url}')">Download PDF</button>` : ''}
+                    <button onclick="app.runTest(${tc.id})" ${tc.status === 'running' ? 'disabled' : ''}>
+                        ${tc.status === 'running' ? 'Running...' : 'Run Test'}
+                    </button>
+                    <button onclick="app.viewTestCase(${tc.id})">View</button>
+                    <button onclick="app.editTestCase(${tc.id})">Edit</button>
+                    <button onclick="app.deleteTestCase(${tc.id})">Delete</button>
+                    ${tc.gif_path ? `<button onclick="app.showGif('${tc.gif_path}')">View GIF</button>` : ''}
+                    ${tc.pdf_url ? `<button onclick="app.downloadPdf('${tc.pdf_url}')">Download PDF</button>` : ''}
                 </div>
-            </div>`;
-        }).join('');
-}
+            </div>
+        `).join('');
+    }
 
+    renderUsers() {
+    const container = document.getElementById('users-list');
+    if (!container) return;
 
-function renderUsers() {
-    const tbody = document.querySelector('#users-table tbody');
-    if(!tbody) return;
-    tbody.innerHTML = users.map(user => `
-        <tr>
-            <td>${user.id}</td>
-            <td>${user.name}</td>
-            <td>${user.email}</td>
-            <td>
-                <button onclick="editUser(${user.id})">Edit</button>
-                <button onclick="deleteUser(${user.id})">Delete</button>
-            </td>
-        </tr>`).join('');
-}
-
-
-function renderActions() {
-    const tbody = document.querySelector('#actions-table tbody');
-    if(!tbody) return;
-    tbody.innerHTML = actions.map(action => `
-        <tr>
-            <td>${action.id}</td>
-            <td>${action.prompt}</td>
-            <td>
-                <button onclick="editAction(${action.id})">Edit</button>
-                <button onclick="deleteAction(${action.id})">Delete</button>
-            </td>
-        </tr>`).join('');
-}
-
-
-function populateReports() {
-    document.getElementById('total-test-cases').textContent = testCases.length;
-    document.getElementById('total-runs').textContent = testRuns.length;
-
-    const tbody = document.getElementById('reports-table-body');
-    if (!tbody) return;
-    
-    if (testRuns.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No test runs recorded yet.</td></tr>`;
+    if (this.users.length === 0) {
+        container.innerHTML = '<p>No users found.</p>';
         return;
     }
 
-    tbody.innerHTML = testRuns.map(run => {
-        const successRate = run.totalTests > 0 ? (run.passed / run.totalTests) * 100 : 0;
-        const timestamp = new Date(run.timestamp).toLocaleString([], {
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', hour12: false
-        }).replace(',', '');
-        const progressBarClass = successRate < 60 ? 'failed' : '';
-        return `
+    container.innerHTML = `
+        <table>
+            <thead>
+                <tr><th>ID</th><th>Name</th><th>Email</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                ${this.users.map(user => `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td>
+                            <button onclick="app.editUser('${user.id}')">Edit</button>
+                            <button onclick="app.deleteUser('${user.id}')">Delete</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+
+
+    renderActions() {
+    const container = document.getElementById('actions-list');
+    if (!container) return;
+
+    if (this.actions.length === 0) {
+        container.innerHTML = '<p>No actions found.</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+          <thead>
             <tr>
-                <td>#${run.id}</td>
-                <td>${run.totalTests}</td>
-                <td>${run.failed}</td>
-                <td>
-                    ${successRate.toFixed(0)}%
-                    <div class="progress-bar-container">
-                        <div class="progress-bar-fill ${progressBarClass}" style="width: ${successRate}%;"></div>
-                    </div>
-                </td>
-                <td>${timestamp}</td>
+              <th>ID</th>
+              <th>Action Name</th>
+              <th>Actions</th>
             </tr>
+          </thead>
+          <tbody>
+            ${this.actions.map(action => `
+              <tr>
+                <td>${action.id}</td>
+                <td>${action.prompt}</td>
+                <td>
+                  <button onclick="app.viewAction(${action.id})">View</button>
+                  <button onclick="app.editAction(${action.id})">Edit</button>
+                  <button onclick="app.deleteAction(${action.id})">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+    `;
+}
+
+
+
+   populateReports() {
+    document.getElementById('total-test-cases').textContent = this.testCases.length;
+    const summaryContainer = document.getElementById('reports-summary');
+    const tableContainer = document.getElementById('reports-table');
+    if (!summaryContainer || !tableContainer) return;
+
+    const totalRuns = this.testRuns.length;
+    const totalTests = this.testRuns.reduce((sum, run) => sum + run.total_tests, 0);
+    const totalPassed = this.testRuns.reduce((sum, run) => sum + run.passed, 0);
+    const totalFailed = this.testRuns.reduce((sum, run) => sum + run.failed, 0);
+
+    summaryContainer.innerHTML = `
+        <div class="summary-card">
+            <div class="summary-label">Total Runs</div>
+            <div class="summary-value">${totalRuns}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Total Tests</div>
+            <div class="summary-value">${totalTests}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Passed</div>
+            <div class="summary-value">${totalPassed}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Failed</div>
+            <div class="summary-value">${totalFailed}</div>
+        </div>
+    `;
+
+    tableContainer.innerHTML = this.testRuns.length === 0 ?
+        '<p>No test runs found.</p>'
+        : `<table>
+            <tr>
+                <th>Run ID</th>
+                <th>Timestamp</th>
+                <th>Total Tests</th>
+                <th>Passed</th>
+                <th>Failed</th>
+                <th>Success Rate</th>
+            </tr>
+            ${this.testRuns.map(run => {
+                const successRate = run.total_tests > 0 ?
+                    ((run.passed / run.total_tests) * 100).toFixed(1) : 0;
+                return `
+                    <tr>
+                        <td>${run.id || ''}</td>
+                        <td>${run.timestamp ? new Date(run.timestamp).toLocaleString() : 'N/A'}</td>
+                        <td>${run.total_tests}</td>
+                        <td>${run.passed}</td>
+                        <td>${run.failed}</td>
+                        <td>${successRate}%</td>
+                    </tr>
+                `;
+            }).join('')}
+        </table>`;
+}
+
+    viewAction(id) {
+        const action = this.actions.find(a => a.id === id);
+        if (!action) {
+            alert('Action not found.');
+            return;
+        }
+
+        document.getElementById('modal-title').textContent = `Action Details - ${action.prompt}`;
+        document.getElementById('modal-form').innerHTML = `
+            <p><strong>Name (Prompt):</strong> ${action.prompt}</p>
+            <p><strong>Steps JSON:</strong></p>
+            <pre style="white-space:pre-wrap; word-break:break-all; background:#f4f4f4; padding:10px;">
+    ${typeof action.steps_json === "string" ? action.steps_json : JSON.stringify(action.steps_json, null, 2)}
+            </pre>
         `;
-    }).join('');
-}
-
-
-// --- CRUD for Users and Actions ---
-function addUser() {
-    const name = document.getElementById('user-name').value.trim();
-    const email = document.getElementById('user-email').value.trim();
-    const password = document.getElementById('user-password').value.trim();
-    if (!name || !email || !password) return alert('Please fill in all fields!');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return alert('Please enter a valid email address!');
-    if (users.some(u => u.email === email)) return alert('A user with this email already exists!');
-
-    const newUser = { id: users.length ? Math.max(...users.map(u => u.id)) + 1 : 1, name, email, password };
-    users.push(newUser);
-    saveData();
-    renderUsers();
-    populateSelects();
-    document.getElementById('user-form').reset();
-    alert('User added successfully!');
-}
-
-function deleteUser(id) {
-    if (confirm('Are you sure you want to delete this user?')) {
-        users = users.filter(u => u.id !== id);
-        saveData();
-        renderUsers();
-        populateSelects();
+        document.getElementById('modal-save').style.display = 'none';
+        document.getElementById('modal').style.display = 'block';
     }
-}
 
-async function generateActionJson() {
-    const prompt = document.getElementById('action-prompt').value.trim();
-    if (!prompt) return alert('Please enter a prompt first!');
-    
-    const btn = document.getElementById('generate-json-btn');
-    btn.disabled = true;
-    btn.textContent = 'Generating...';
-    
-    try {
-        const res = await fetch('/generate-action-json', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to generate JSON');
-        document.getElementById('action-steps').value = JSON.stringify(data, null, 2);
-    } catch (e) {
-        alert(`Error: ${e.message}`);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Generate Steps JSON';
+
+
+    // Modal methods
+    viewTestCase(id) {
+    const tc = this.testCases.find(t => t.id === id);
+    if (!tc) {
+        alert('Test case not found.');
+        return;
     }
-}
 
-function addAction() {
-    const prompt = document.getElementById('action-prompt').value.trim();
-    const stepsJson = document.getElementById('action-steps').value.trim();
-    if (!prompt || !stepsJson) return alert('Please enter a prompt and generate/provide steps JSON.');
+    // Find user by user_id (if you want to show the user name)
+    const userObj = this.users.find(u => u.id === tc.user_id);
 
-    try {
-        JSON.parse(stepsJson);
-    } catch (e) {
-        return alert('The provided Steps JSON is not valid.');
-    }
-    
-    const newAction = {
-        id: actions.length ? Math.max(...actions.map(a => a.id)) + 1 : 1,
-        prompt,
-        stepsJson
-    };
-    actions.push(newAction);
-    saveData();
-    renderActions();
-    populateSelects();
-    document.getElementById('action-form').reset();
-    alert('Action added successfully!');
-}
+    // Find action prompts (if actions array is an array of prompt strings)
+    let actionsList = (Array.isArray(tc.actions) && tc.actions.length)
+      ? `<ul>${tc.actions.map(a => `<li>${a}</li>`).join('')}</ul>` : '<em>No actions.</em>';
 
-function deleteAction(id) {
-    if (confirm('Are you sure you want to delete this action?')) {
-        actions = actions.filter(a => a.id !== id);
-        saveData();
-        renderActions();
-        populateSelects();
-    }
-}
-
-// --- Modal Management (View/Edit) ---
-function viewTestCase(id) {
-    const tc = testCases.find(t => t.id === id);
-    if (!tc) return;
-    document.getElementById('modal-title').textContent = 'View Test Case: ' + tc.title;
+    document.getElementById('modal-title').textContent = `Test Case Details - ${tc.title}`;
     document.getElementById('modal-form').innerHTML = `
-        <p><strong>User:</strong> ${tc.user}</p>
-        <p><strong>Actions:</strong> ${tc.actions.join(', ')}</p>
+        <p><strong>User:</strong> ${userObj ? userObj.name : tc.user_id || 'N/A'}</p>
+        <p><strong>Actions:</strong> ${actionsList}</p>
         <p><strong>Prompt Steps:</strong></p>
-        <pre>${JSON.stringify(JSON.parse(tc.promptSteps), null, 2)}</pre>`;
+        <pre style="white-space:pre-wrap; word-break:break-all; background:#f4f4f4; padding:10px;">${typeof tc.prompt_steps === 'string' ? tc.prompt_steps : JSON.stringify(tc.prompt_steps, null, 2)}</pre>
+        <p><strong>Status:</strong> ${tc.status || 'pending'}</p>
+    `;
     document.getElementById('modal-save').style.display = 'none';
     document.getElementById('modal').style.display = 'block';
 }
 
-function editTestCase(id) {
-    const tc = testCases.find(t => t.id === id);
+
+
+
+    editTestCase(id) {
+    const tc = this.testCases.find(t => t.id === id);
     if (!tc) return;
+
     document.getElementById('modal-title').textContent = 'Edit Test Case #' + id;
+
+    // Populate users as a select
+    let userSelect = `<select id="edit-user">` +
+      this.users.map(user => 
+        `<option value="${user.id}"${user.id === tc.user_id ? ' selected' : ''}>${user.name}</option>`
+    ).join('') +
+      `</select>`;
+
+    // Populate actions as checkboxes
+    let actionsCheckboxes = this.actions.map(action => 
+      `<label>
+        <input type="checkbox" value="${action.prompt.replace(/"/g, "&quot;")}"
+            ${Array.isArray(tc.actions) && tc.actions.includes(action.prompt) ? 'checked' : ''}>
+        ${action.prompt}
+      </label>`
+    ).join('');
+
+    // Populate modal form
     document.getElementById('modal-form').innerHTML = `
-        <label for="edit-title">Title:</label>
-        <input id="edit-title" value="${tc.title || ''}">
-        <label for="edit-user">User:</label>
-        <input id="edit-user" value="${tc.user}">
-        <label for="edit-actions">Actions (comma-separated):</label>
-        <input id="edit-actions" value="${tc.actions.join(', ')}">
-        <label for="edit-promptsteps">Prompt Steps JSON:</label>
-        <textarea id="edit-promptsteps">${tc.promptSteps}</textarea>`;
+        <label>Title:</label>
+        <input type="text" id="edit-title" value="${tc.title}">
+
+        <label>User:</label>
+        ${userSelect}
+
+        <label>Actions:</label>
+        <div id="edit-actions-checkboxes">
+          ${actionsCheckboxes}
+        </div>
+
+        <label>Prompt Steps:</label>
+        <textarea id="edit-promptsteps">${typeof tc.prompt_steps === "string" ? tc.prompt_steps : JSON.stringify(tc.prompt_steps, null, 2)}</textarea>
+    `;
+
     const modalSave = document.getElementById('modal-save');
     modalSave.style.display = 'block';
     modalSave.dataset.id = id;
@@ -373,145 +809,181 @@ function editTestCase(id) {
     document.getElementById('modal').style.display = 'block';
 }
 
-function editUser(id) {
-    const user = users.find(u => u.id === id);
-    if (!user) return;
-    document.getElementById('modal-title').textContent = `Edit User #${id}`;
-    document.getElementById('modal-form').innerHTML = `
-        <label for="edit-name">Name:</label>
-        <input id="edit-name" value="${user.name}">
-        <label for="edit-email">Email:</label>
-        <input id="edit-email" type="email" value="${user.email}">
-        <label for="edit-password">Password:</label>
-        <input id="edit-password" type="password" value="${user.password}">`;
-    const modalSave = document.getElementById('modal-save');
-    modalSave.style.display = 'block';
-    modalSave.dataset.id = id;
-    modalSave.dataset.type = 'user';
-    document.getElementById('modal').style.display = 'block';
-}
 
-function editAction(id) {
-    const action = actions.find(a => a.id === id);
-    if (!action) return;
-    document.getElementById('modal-title').textContent = `Edit Action #${id}`;
-    document.getElementById('modal-form').innerHTML = `
-        <label for="edit-prompt">Prompt:</label>
-        <input id="edit-prompt" value="${action.prompt}">
-        <label for="edit-steps">Steps JSON:</label>
-        <textarea id="edit-steps">${action.stepsJson}</textarea>`;
-    const modalSave = document.getElementById('modal-save');
-    modalSave.style.display = 'block';
-    modalSave.dataset.id = id;
-    modalSave.dataset.type = 'action';
-    document.getElementById('modal').style.display = 'block';
-}
+    editUser(id) {
+        const user = this.users.find(u => u.id === id);
+        if (!user) return;
 
-// --- Refactored Save Logic ---
-function saveTestCaseChanges(id) {
-    const tc = testCases.find(t => t.id === id);
+        document.getElementById('modal-title').textContent = `Edit User #${id}`;
+        document.getElementById('modal-form').innerHTML = `
+            <label>Name:</label>
+            <input type="text" id="edit-name" value="${user.name}">
+            <label>Email:</label>
+            <input type="email" id="edit-email" value="${user.email}">
+            <label>Password:</label>
+            <input type="password" id="edit-password" value="${user.password_hash}">
+        `;
+        
+        const modalSave = document.getElementById('modal-save');
+        modalSave.style.display = 'block';
+        modalSave.dataset.id = id;
+        modalSave.dataset.type = 'user';
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    editAction(id) {
+        const action = this.actions.find(a => a.id === id);
+        if (!action) return;
+
+        document.getElementById('modal-title').textContent = `Edit Action #${id}`;
+        document.getElementById('modal-form').innerHTML = `
+            <label>Prompt:</label>
+            <input type="text" id="edit-prompt" value="${action.prompt.replace(/"/g, '&quot;')}" />
+            
+            <label>Steps JSON:</label>
+            <textarea id="edit-steps" rows="8">${typeof action.steps_json === 'string' ? action.steps_json : JSON.stringify(action.steps_json, null, 2)}</textarea>
+        `;
+
+        const modalSave = document.getElementById('modal-save');
+        modalSave.style.display = 'block';
+        modalSave.dataset.id = id;
+        modalSave.dataset.type = 'action';
+        document.getElementById('modal').style.display = 'block';
+        }
+
+
+    async saveModalChanges() {
+        const modalSave = document.getElementById('modal-save');
+        const id = modalSave.dataset.id;
+        const type = modalSave.dataset.type;
+
+        try {
+            switch (type) {
+                case 'user':
+                    await this.saveUserChanges(id);
+                    break;
+                case 'action':
+                    await this.saveActionChanges(id);
+                    break;
+                case 'testcase':
+                    await this.saveTestCaseChanges(id);
+                    break;
+            }
+            this.closeModal();
+        } catch (error) {
+            alert('Save failed: ' + error.message);
+        }
+    }
+
+    async saveTestCaseChanges(id) {
+    const tc = this.testCases.find(t => t.id == id);
     if (!tc) return;
+
     tc.title = document.getElementById('edit-title').value.trim();
-    tc.user = document.getElementById('edit-user').value;
-    tc.actions = document.getElementById('edit-actions').value.split(',').map(a => a.trim());
-    tc.promptSteps = document.getElementById('edit-promptsteps').value;
-    saveData();
-    renderTestCaseList();
+    tc.user_id = document.getElementById('edit-user').value;
+    const checkedBoxes = document.querySelectorAll('#edit-actions-checkboxes input[type="checkbox"]:checked');
+    tc.actions = [...checkedBoxes].map(cb => cb.value);
+
+    const promptEdit = document.getElementById('edit-promptsteps').value;
+    try {
+        tc.prompt_steps = JSON.parse(promptEdit);
+    } catch(e) {
+        tc.prompt_steps = promptEdit;
+    }
+
+    await this.saveTestCase(tc);
+    await this.loadTestCases();
+    this.renderTestCaseList();
 }
 
-function saveUserChanges(id) {
-    const user = users.find(u => u.id === id);
-    if (!user) return;
-    const newName = document.getElementById('edit-name').value.trim();
-    const newEmail = document.getElementById('edit-email').value.trim();
-    const newPassword = document.getElementById('edit-password').value.trim();
 
-    if (!newName || !newEmail || !newPassword) return alert('Please fill in all fields!');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) return alert('Please enter a valid email address!');
-    if (users.some(u => u.id !== id && u.email === newEmail)) return alert('A user with this email already exists!');
-    
-    user.name = newName;
-    user.email = newEmail;
-    user.password = newPassword;
-    saveData();
-    renderUsers();
-    populateSelects();
-}
+    async saveUserChanges(id) {
+        const user = this.users.find(u => u.id === id);
+        if (!user) return;
 
-function saveActionChanges(id) {
-    const action = actions.find(a => a.id === id);
-    if (!action) return;
+        const newName = document.getElementById('edit-name').value.trim();
+        const newEmail = document.getElementById('edit-email').value.trim();
+        const newPassword = document.getElementById('edit-password').value.trim();
+
+        if (!newName || !newEmail || !newPassword) {
+            throw new Error('Please fill in all fields!');
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            throw new Error('Please enter a valid email address!');
+        }
+
+        // Update via API would go here
+        user.name = newName;
+        user.email = newEmail;
+        user.password_hash = newPassword;
+
+        await this.loadUsers();
+        this.renderUsers();
+        this.populateSelects();
+    }
+
+    async saveActionChanges(id) {
     const newPrompt = document.getElementById('edit-prompt').value.trim();
     const newSteps = document.getElementById('edit-steps').value.trim();
-    if (!newPrompt || !newSteps) return alert('Please fill in all fields!');
+
+    if (!newPrompt || !newSteps) {
+        throw new Error('Please fill in all fields!');
+    }
+
     try {
         JSON.parse(newSteps);
     } catch (e) {
-        return alert('Invalid JSON in steps!');
+        throw new Error('Invalid JSON in steps!');
     }
-    action.prompt = newPrompt;
-    action.stepsJson = newSteps;
-    saveData();
-    renderActions();
-    populateSelects();
-}
 
-function saveModalChanges() {
-    const modalSave = document.getElementById('modal-save');
-    const id = parseInt(modalSave.dataset.id);
-    const type = modalSave.dataset.type;
+    try {
+        const response = await fetch(`/api/actions/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                prompt: newPrompt,
+                steps_json: newSteps
+            })
+        });
 
-    switch (type) {
-        case 'user':
-            saveUserChanges(id);
-            break;
-        case 'action':
-            saveActionChanges(id);
-            break;
-        case 'testcase':
-            saveTestCaseChanges(id);
-            break;
-        default:
-            console.error('Unknown modal type:', type);
-            return;
-    }
-    closeModal();
-}
+        if (!response.ok) {
+            throw new Error('Failed to update action');
+        }
 
-function deleteTestCase(id) {
-    if (confirm('Delete this test case?')) {
-        testCases = testCases.filter(t => t.id !== id);
-        saveData();
-        renderTestCaseList();
+        await this.loadActions();
+        this.renderActions();
+        this.populateSelects();
+    } catch (error) {
+        throw new Error('Failed to update action: ' + error.message);
     }
 }
-function closeModal() {
-    document.getElementById('modal').style.display = 'none';
+
+
+    closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
+
+    // Media methods
+    showGif(gifUrl) {
+        if (!gifUrl) return alert('No GIF available');
+        const w = window.open();
+        w.document.write(`<img src="${gifUrl}" style="max-width:100%;">`);
+    }
+
+    downloadPdf(pdfUrl) {
+        if (!pdfUrl) return alert('No PDF available');
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = pdfUrl.split('/').pop() || 'test_report.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 }
 
-// --- Media Previews ---
-function showGif(gifUrl) {
-    if (!gifUrl) return alert('No GIF available');
-    const w = window.open();
-    w.document.write(`<body style="margin:0; background:#333;"><img src="${gifUrl}" alt="Test GIF" style="max-width: 100%;"></body>`);
-}
+// Initialize the app
+const app = new BrowserUseWebAgent();
 
-function downloadPdf(pdfUrl) {
-    if (!pdfUrl) return alert('No PDF available');
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = pdfUrl.split('/').pop() || 'test_report.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-// --- Initialize ---
-document.addEventListener('DOMContentLoaded', () => {
-    populateSelects();
-    openTab('test-cases');
-    document.getElementById('modal-save').addEventListener('click', saveModalChanges);
-    window.onclick = (event) => {
-        if (event.target === document.getElementById('modal')) closeModal();
-    };
-});
+// Make methods available globally for onclick handlers
+window.app = app;
