@@ -74,12 +74,9 @@ jobs:
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
-      - name: Lowercase the repo name and username
-        run: echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
-
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
-      - uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v2
         with:
           app-name: testing-ai
           images: ${{ secrets.ACR_NAME }}.azurecr.io/browser-use-web-agent-app:latest
