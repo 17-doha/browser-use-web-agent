@@ -81,3 +81,4 @@ jobs:
           app-name: testing-ai
           images: ${{ secrets.ACR_NAME }}.azurecr.io/browser-use-web-agent-app:latest
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          
