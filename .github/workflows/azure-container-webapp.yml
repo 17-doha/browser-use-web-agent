@@ -1,7 +1,7 @@
 name: Build and deploy a container to an Azure Web App
 
 env:
-  AZURE_WEBAPP_NAME: testing-ai  # set this to the name of your Azure Web App
+  AZURE_WEBAPP_NAME: testing-ai  # Your Azure Web App name
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }} # Or use ${{ secrets.GHCR_PAT }} if using a PAT
+          password: ${{ github.token }} # Or ${{ secrets.GHCR_PAT }} if using a PAT
 
       - name: Lowercase the repo name and username
         run: echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
