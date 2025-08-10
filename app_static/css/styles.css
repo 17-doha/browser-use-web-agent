@@ -1,50 +1,141 @@
+/* ==========================================================================
+   CSS Variables
+   ========================================================================== */
+:root {
+    --primary-color: #007bff;
+    --primary-dark: #0056b3;
+    --background-light: #f5f7fa;
+    --text-light: #333;
+    --card-light: #ffffff;
+    --border-light: #ddd;
+    --header-light: #f2f2f2;
+    --shadow-light: rgba(0, 0, 0, 0.1);
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 2rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.5rem;
+    --font-size-xl: 2rem;
+    --border-radius: 8px;
+    --transition: all 0.3s ease;
+}
+
+.dark {
+    --background-light: #1e1e2f;
+    --text-light: #e0e0e0;
+    --card-light: #2a2a3c;
+    --border-light: #555;
+    --header-light: #3a3a4c;
+    --shadow-light: rgba(0, 0, 0, 0.3);
+    --primary-color: #66b0ff;
+    --primary-dark: #4a4a5c;
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     line-height: 1.6;
     margin: 0;
-    padding: 20px;
-    background-color: #ffffff;
-    color: #000000;
-    transition: background-color 0.3s, color 0.3s;
+    padding: 0;
+    background-color: var(--background-light);
+    color: var(--text-light);
+    transition: var(--transition);
+    font-size: var(--font-size-base);
 }
 
-.dark body {
-    background-color: #1a1a1a;
-    color: #ffffff;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-h1, h2 {
+/* ==========================================================================
+   Header
+   ========================================================================== */
+header {
+    background-color: var(--primary-color);
+    color: #fff;
+    padding: var(--spacing-md);
     text-align: center;
+    box-shadow: 0 2px 4px var(--shadow-light);
 }
 
-.tabs {
+header h1 {
+    margin: 0;
+    font-size: var(--font-size-xl);
+}
+
+header p {
+    margin: var(--spacing-sm) 0;
+    font-size: var(--font-size-base);
+}
+
+#user-info {
+    margin-top: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+}
+
+#theme-toggle {
+    background-color: var(--card-light);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+#theme-toggle:hover {
+    background-color: var(--primary-dark);
+    color: #fff;
+}
+
+/* ==========================================================================
+   Navigation
+   ========================================================================== */
+.navbar {
+    background-color: var(--card-light);
+    box-shadow: 0 2px 4px var(--shadow-light);
+    padding: var(--spacing-md);
     display: flex;
     justify-content: center;
-    margin-bottom: 20px;
+    gap: var(--spacing-md);
+    transition: var(--transition);
 }
 
-.tab-button {
-    padding: 10px 20px;
-    margin: 0 5px;
-    background-color: #f0f0f0;
+.nav-button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--primary-color);
+    color: #fff;
     border: none;
+    border-radius: var(--border-radius);
     cursor: pointer;
-    border-radius: 5px;
+    font-size: var(--font-size-base);
+    transition: var(--transition);
 }
 
-.dark .tab-button {
-    background-color: #333333;
-    color: #ffffff;
+.nav-button:hover {
+    background-color: var(--primary-dark);
 }
 
-.tab-button.active {
-    background-color: #007bff;
-    color: white;
+.nav-button.active {
+    background-color: var(--primary-dark);
+    font-weight: bold;
+}
+
+.nav-button:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Container and Content
+   ========================================================================== */
+.container {
+    max-width: 1200px;
+    margin: var(--spacing-lg) auto;
+    padding: 0 var(--spacing-md);
 }
 
 .tab-content {
@@ -53,252 +144,356 @@ h1, h2 {
 
 .tab-content.active {
     display: block;
+    animation: fadeIn 0.5s ease-in-out;
 }
 
+h2 {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-md);
+    color: var(--primary-color);
+}
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
 form {
     display: flex;
     flex-direction: column;
     max-width: 600px;
-    margin: 0 auto 20px;
+    margin: 0 auto var(--spacing-lg);
+    background: var(--card-light);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 label {
-    margin: 10px 0 5px;
+    margin: var(--spacing-sm) 0;
+    font-weight: 600;
 }
 
 input, select, textarea {
-    padding: 8px;
-    margin-bottom: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-base);
+    background-color: var(--card-light);
+    color: var(--text-light);
+    transition: var(--transition);
 }
 
-.dark input, .dark select, .dark textarea {
-    background-color: #2a2a2a;
-    color: #ffffff;
-    border-color: #444444;
+input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--primary-color);
+    border-color: var(--primary-color);
 }
 
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
 button {
-    padding: 10px;
-    background-color: #007bff;
-    color: white;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--primary-color);
+    color: #fff;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: var(--transition);
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-dark);
 }
 
+button:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    margin: var(--spacing-md) 0;
+    background: var(--card-light);
+    box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    border: 1px solid var(--border-light);
+    padding: var(--spacing-sm);
     text-align: left;
 }
 
-.dark th, .dark td {
-    border-color: #444444;
-}
-
 th {
-    background-color: #f2f2f2;
+    background-color: var(--header-light);
+    font-weight: 600;
 }
 
-.dark th {
-    background-color: #333333;
+td button {
+    margin-right: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
 }
 
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.4);
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 600px;
-}
-
-.dark .modal-content {
-    background-color: #2a2a2a;
-    color: #ffffff;
-}
-
-.close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-}
-
-.close:hover {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.dark .close:hover {
-    color: white;
-}
-
-.report-item {
-    border: 1px solid #ddd;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-}
-
-.dark .report-item {
-    border-color: #444444;
-}
-
-.badge {
-    padding: 5px 10px;
-    border-radius: 20px;
-    font-size: 0.8em;
-}
-
-.badge-success { background-color: #28a745; color: white; }
-.badge-failure { background-color: #dc3545; color: white; }
-
-.progress {
-    height: 20px;
-    background-color: #f0f0f0;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-bar {
-    height: 100%;
-    background-color: #007bff;
-    transition: width 0.3s;
-}
-
-.dark .progress {
-    background-color: #333333;
-}
-
-/* Revised card styles */
+/* ==========================================================================
+   Test Case Cards
+   ========================================================================== */
 .test-case-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-md);
 }
 
 .test-case-card {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: var(--card-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    box-shadow: 0 2px 4px var(--shadow-light);
+    transition: var(--transition);
+}
+
+.test-case-card:hover {
+    box-shadow: 0 4px 8px var(--shadow-light);
 }
 
 .test-case-card h3 {
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 var(--spacing-sm);
     font-size: 1.2rem;
 }
 
 .test-case-card p {
-    margin: 0.25rem 0;
+    margin: var(--spacing-sm) 0;
     color: #666;
 }
 
+.dark .test-case-card p {
+    color: #bbb;
+}
+
 .test-case-card .buttons {
-    margin-top: 1rem;
+    margin-top: var(--spacing-md);
     display: flex;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
 }
 
-.test-case-card button {
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-}
-
-/* Modal styles (revised for test case view/edit) */
-.modal-content textarea {
-    width: 100%;
-    height: 200px;
-    margin-top: 1rem;
-}
-
-
+/* ==========================================================================
+   Report Summary
+   ========================================================================== */
 .report-summary {
     display: flex;
-    gap: 20px;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
     justify-content: center;
-    margin-bottom: 30px;
+    margin-bottom: var(--spacing-lg);
 }
+
 .summary-card {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: var(--card-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    box-shadow: 0 2px 4px var(--shadow-light);
     text-align: center;
     min-width: 200px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
 }
+
 .summary-label {
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     color: #666;
-    margin-bottom: 10px;
+    margin-bottom: var(--spacing-sm);
 }
+
+.dark .summary-label {
+    color: #bbb;
+}
+
 .summary-value {
-    font-size: 2.5rem;
+    font-size: var(--font-size-xl);
     font-weight: bold;
-    color: #333;
-    margin-bottom: 15px;
+    color: var(--text-light);
 }
-#reports-table {
+
+/* ==========================================================================
+   Modal
+   ========================================================================== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
     width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s ease-in-out;
 }
-#reports-table th, #reports-table td {
-    border: 1px solid #ddd;
-    padding: 12px;
-    text-align: left;
+
+.modal-content {
+    background: var(--card-light);
+    margin: 10% auto;
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 4px 8px var(--shadow-light);
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.close:hover {
+    color: var(--text-light);
+}
+
+.modal-content textarea {
+    width: 100%;
+    height: 200px;
+    margin-top: var(--spacing-md);
+}
+
+/* ==========================================================================
+   Modal-Specific Table and List Styling
+   ========================================================================== */
+#modal-form table {
+    margin-top: var(--spacing-md);
+}
+
+#modal-form th {
+    background-color: var(--header-light);
+    font-weight: 600;
+}
+
+#modal-form td {
     vertical-align: middle;
 }
-#reports-table th {
-    background-color: #f2f2f2;
+
+#modal-form ol {
+    padding-left: var(--spacing-md);
+    margin-top: var(--spacing-md);
 }
+
+#modal-form ol li {
+    margin-bottom: var(--spacing-sm);
+    padding-left: var(--spacing-sm);
+}
+
+/* ==========================================================================
+   Badges and Progress Bars
+   ========================================================================== */
+.badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+}
+
+.badge-success {
+    background-color: var(--success-color);
+    color: #fff;
+}
+
+.badge-failure {
+    background-color: var(--error-color);
+    color: #fff;
+}
+
+.progress {
+    height: 1.2rem;
+    background-color: var(--header-light);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--success-color);
+    transition: width var(--transition);
+}
+
 .progress-bar-container {
     display: inline-block;
     width: 100px;
     height: 10px;
-    background-color: #e9ecef;
-    border-radius: 5px;
+    background-color: var(--header-light);
+    border-radius: var(--border-radius);
     overflow: hidden;
-    margin-left: 10px;
 }
+
 .progress-bar-fill {
     height: 100%;
-    background-color: #28a745; /* Green for success */
-    border-radius: 5px;
-    transition: width 0.5s ease-in-out;
+    background-color: var(--success-color);
+    border-radius: var(--border-radius);
+    transition: width var(--transition);
 }
+
 .progress-bar-fill.failed {
-    background-color: #dc3545; /* Red for failure */
+    background-color: var(--error-color);
+}
+
+/* ==========================================================================
+   Animations
+   ========================================================================== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .nav-button {
+        width: 100%;
+        text-align: center;
+        margin: var(--spacing-sm) 0;
+    }
+
+    .test-case-list {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-content {
+        width: 95%;
+        margin: 20% auto;
+    }
+
+    header h1 {
+        font-size: var(--font-size-lg);
+    }
+
+    .summary-card {
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 var(--spacing-sm);
+    }
+
+    form {
+        padding: var(--spacing-md);
+    }
+
+    button {
+        font-size: 0.9rem;
+    }
 }

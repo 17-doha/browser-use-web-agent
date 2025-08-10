@@ -5,42 +5,153 @@ import os
 import json
 import re
 import traceback
-from supabase import create_client, Client
 from datetime import datetime
 from dotenv import load_dotenv
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime, text
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy.pool import QueuePool
 
 load_dotenv()
 
 app = Flask(__name__, static_url_path='', template_folder="templates")
 CORS(app)
 
-# Supabase configuration
-SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://YOUR_PROJECT.supabase.co')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY', 'YOUR_ANON_KEY')
+# --- SQLAlchemy Setup ---
+# Try different SSL configurations for Supabase
+import ssl
 
-# Initialize Supabase client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Option 1: Try with SSL context
+try:
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    DATABASE_URL = "postgresql://postgres.rpwwyugngnvdegzfltvo:h5APXXtrN!Y%eP2@aws-0-eu-north-1.pooler.supabase.com:6543/postgres"
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=3,
+        max_overflow=5,
+        pool_timeout=20,
+        poolclass=QueuePool,
+        connect_args={
+            "sslmode": "require",
+            "connect_timeout": 10,
+            "application_name": "browser_agent_app",
+            "sslcert": None,
+            "sslkey": None,
+            "sslrootcert": None
+        }
+    )
+except Exception as e:
+    print(f"Failed to create engine with SSL context: {e}")
+    # Fallback to basic configuration
+    DATABASE_URL = "postgresql://postgres.rpwwyugngnvdegzfltvo:h5APXXtrN!Y%eP2@aws-0-eu-north-1.pooler.supabase.com:6543/postgres"
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=3,
+        max_overflow=5,
+        pool_timeout=20,
+        poolclass=QueuePool
+    )
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# --- Database Session Management ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    except Exception as e:
+        print(f"Database session error: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+Base = declarative_base()
+
+# --- ORM Models ---
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)  # plaintext in your current code
+
+class TestCase(Base):
+    __tablename__ = "test_cases"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    actions = Column(JSON)          # store arrays/dicts directly
+    prompt_steps = Column(JSON)     # store dicts directly
+    status = Column(String)
+    gif_path = Column(String)
+    pdf_url = Column(String)
+    user = relationship("User")
+
+class Action(Base):
+    __tablename__ = "actions"
+    id = Column(Integer, primary_key=True, index=True)
+    prompt = Column(Text)
+    steps_json = Column(Text)
+
+class TestRun(Base):
+    __tablename__ = "test_runs"
+    id = Column(Integer, primary_key=True, index=True)
+    total_tests = Column(Integer)
+    passed = Column(Integer)
+    failed = Column(Integer)
+    results = Column(Text)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+# Create tables with retry logic
+def create_tables_with_retry():
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("Database tables created successfully")
+            return True
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            if attempt == max_retries - 1:
+                print("Failed to create database tables after all retries")
+                return False
+            import time
+            time.sleep(2)  # Wait 2 seconds before retrying
+    return False
+
+# Try to create tables, but don't fail the application if it doesn't work
+tables_created = create_tables_with_retry()
+if not tables_created:
+    print("WARNING: Could not create database tables. Database functionality will be limited.")
+
+# --- Database Connection Test ---
+def test_database_connection():
+    try:
+        print("Testing database connection...")
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT 1"))
+            print("Database connection test successful")
+            return True
+    except Exception as e:
+        print(f"Database connection test failed: {e}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+# Test the connection
+connection_success = test_database_connection()
+if not connection_success:
+    print("WARNING: Database connection failed. The application may not work properly.")
+    print("You can still run the application without database functionality.")
 
 # --- Helper Function for Robust JSON Extraction ---
 def extract_json_from_string(text):
-    """
-    Finds and extracts the first valid JSON object string from a larger text block.
-    """
-    # Pattern 1: Look for a json code block and extract its content
-    match = re.search(r"``````", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    
-    # Pattern 2: Look for any code block and extract its content
-    match = re.search(r"``````", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    
-    # Pattern 3: Fallback to find the first '{' to the last '}' in the entire string
     match = re.search(r'(\{[\s\S]*\})', text)
     if match:
         return match.group(1).strip()
-    
     return None
 
 # Static file serving
@@ -51,124 +162,157 @@ def serve_app_static(filename):
 
 @app.route('/static/<path:path>')
 def serve_static_files(path):
-    print(f"[DEBUG] Serving static file: /static/{path}")
     return send_from_directory('static', path)
 
 @app.route("/")
 def home():
-    """Serves the main index.html file."""
     return send_from_directory("templates", "index.html")
 
 # --- User API Endpoints ---
-@app.route('/api/users', methods=['GET'])   
+@app.route('/api/users', methods=['GET'])
 def get_all_users():
     try:
-        res = supabase.table('users').select('*').execute()
-        return jsonify(res.data)
+        db = SessionLocal()
+        users = db.query(User).all()
+        return jsonify([{
+            "id": u.id, "name": u.name, "email": u.email
+        } for u in users])
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/users', methods=['POST'])
 def create_user():
     try:
+        db = SessionLocal()
         payload = request.get_json()
-        # Store plain password for now (NOT secure for real prod)
-        user_data = {
-            'name': payload.get('name'),
-            'email': payload.get('email'),
-            'password': payload.get('password') 
-            # 'password_hash': hash_function(payload.get('password')) # for future security
-        }
-        res = supabase.table('users').insert(user_data).execute()
-        return jsonify(res.data), 201
+        new_user = User(
+            name=payload.get('name'),
+            email=payload.get('email'),
+            password=payload.get('password')
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return jsonify({"id": new_user.id, "name": new_user.name, "email": new_user.email}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
 
 @app.route('/api/users/<user_id>', methods=['GET'])
 def get_user(user_id):
     try:
-        res = supabase.table('users').select('*').eq('id', user_id).execute()
-        if res.data:
-            return jsonify(res.data[0])
+        db = SessionLocal()
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            return jsonify({"id": user.id, "name": user.name, "email": user.email})
         return jsonify({'error': 'User not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-    
+
 @app.route('/api/users/<user_id>', methods=['DELETE'])
 def delete_user(user_id):
     try:
-        res = supabase.table('users').delete().eq('id', user_id).execute()
+        db = SessionLocal()
+        db.query(User).filter(User.id == user_id).delete()
+        db.commit()
         return jsonify({'message': 'User deleted'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-
 @app.route('/api/login', methods=['POST'])
 def login():
     try:
+        db = SessionLocal()
         payload = request.get_json()
         email = payload.get('email')
         password = payload.get('password')
-        
-        res = supabase.table('users').select('*').eq('email', email).eq('password', password).execute()
-        if res.data:
-            return jsonify(res.data[0])
+        user = db.query(User).filter(User.email == email, User.password == password).first()
+        if user:
+            return jsonify({"id": user.id, "name": user.name, "email": user.email})
         return jsonify({'error': 'Invalid credentials'}), 401
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
 
 # --- Test Cases API Endpoints ---
 @app.route('/api/test_cases', methods=['GET'])
 def get_test_cases():
     try:
+        db = SessionLocal()
         user_id = request.args.get('user_id')
         if user_id:
-            res = supabase.table('test_cases').select('*').eq('user_id', user_id).execute()
+            test_cases = db.query(TestCase).filter(TestCase.user_id == user_id).all()
         else:
-            res = supabase.table('test_cases').select('*').execute()
-        return jsonify(res.data)
+            test_cases = db.query(TestCase).all()
+        return jsonify([{
+            "id": t.id, "title": t.title, "user_id": t.user_id,
+            "actions": t.actions, "prompt_steps": t.prompt_steps,
+            "status": t.status, "gif_path": t.gif_path, "pdf_url": t.pdf_url
+        } for t in test_cases])
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/test_cases', methods=['POST'])
 def create_test_case():
     try:
-        payload = request.get_json()
-        print("Raw payload:", request.data)
+        db = SessionLocal()
+        
+        # Log raw request data
+        print("Headers:", dict(request.headers))
+        print("Raw Data:", request.data)
+        
+        payload = request.get_json(force=True)
+        print("Parsed JSON payload:", payload)
 
-        print("Received test case payload:", payload)  # Add this line
-        print("User ID:", payload.get('user_id'))  
-        test_case_data = {
-            'title': payload.get('title'),
-            'user_id': payload.get('user_id'),
-            'actions': payload.get('actions'),
-            'prompt_steps': payload.get('prompt_steps'),
-            'status': payload.get('status', 'pending'),
-            'gif_path': payload.get('gif_path'),
-            'pdf_url': payload.get('pdf_url')
-        }
-        res = supabase.table('test_cases').insert(test_case_data).execute()
-        return jsonify(res.data), 201
+        new_case = TestCase(
+            title=payload.get('title'),
+            user_id=payload.get('user_id'),
+            actions=json.dumps(payload.get('actions')),
+            prompt_steps=json.dumps(payload.get('prompt_steps')),
+            status=payload.get('status', 'pending'),
+            gif_path=payload.get('gif_path'),
+            pdf_url=payload.get('pdf_url')
+        )
+
+        db.add(new_case)
+        db.commit()
+        db.refresh(new_case)
+        return jsonify({"id": new_case.id}), 201
     except Exception as e:
-        print(f"Error creating test case: {e}")  # Log the error
+        import traceback
+        print("Exception occurred:", str(e))
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 400
-
 
 @app.route('/api/test_cases/<int:case_id>', methods=['PUT'])
 def update_test_case(case_id):
+    data = request.get_json()
+
+    if not data or 'title' not in data or 'description' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
     try:
-        payload = request.get_json()
-        res = supabase.table('test_cases').update(payload).eq('id', case_id).execute()
-        return jsonify(res.data)
+        db = SessionLocal()
+        payload = request.get_json(force=True)
+
+        # Convert dicts/lists to JSON strings before update
+        if isinstance(payload.get("prompt_steps"), (dict, list)):
+            payload["prompt_steps"] = json.dumps(payload["prompt_steps"])
+        if isinstance(payload.get("actions"), (dict, list)):
+            payload["actions"] = json.dumps(payload["actions"])
+
+        updated_rows = db.query(TestCase).filter(TestCase.id == case_id).update(payload)
+        if updated_rows == 0:
+            return jsonify({'error': 'Test case not found'}), 404
+
+        db.commit()
+        return jsonify({'message': 'Updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/test_cases/<int:case_id>', methods=['DELETE'])
 def delete_test_case(case_id):
     try:
-        res = supabase.table('test_cases').delete().eq('id', case_id).execute()
+        db = SessionLocal()
+        db.query(TestCase).filter(TestCase.id == case_id).delete()
+        db.commit()
         return jsonify({'message': 'Test case deleted'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -177,147 +321,167 @@ def delete_test_case(case_id):
 @app.route('/api/actions', methods=['GET'])
 def get_actions():
     try:
-        res = supabase.table('actions').select('*').execute()
-        return jsonify(res.data)
+        db = SessionLocal()
+        actions = db.query(Action).all()
+        return jsonify([{"id": a.id, "prompt": a.prompt, "steps_json": a.steps_json} for a in actions])
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/actions', methods=['POST'])
 def create_action():
     try:
+        db = SessionLocal()
         payload = request.get_json()
-        action_data = {
-            'prompt': payload.get('prompt'),
-            'steps_json': payload.get('steps_json')
-        }
-        res = supabase.table('actions').insert(action_data).execute()
-        return jsonify(res.data), 201
+        new_action = Action(
+            prompt=payload.get('prompt'),
+            steps_json=payload.get('steps_json')
+        )
+        db.add(new_action)
+        db.commit()
+        db.refresh(new_action)
+        return jsonify({"id": new_action.id}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/actions/<int:action_id>', methods=['PUT'])
 def update_action(action_id):
     try:
+        db = SessionLocal()
         payload = request.get_json()
-        res = supabase.table('actions').update(payload).eq('id', action_id).execute()
-        return jsonify(res.data)
+        db.query(Action).filter(Action.id == action_id).update(payload)
+        db.commit()
+        return jsonify({'message': 'Updated successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/actions/<int:action_id>', methods=['DELETE'])
 def delete_action(action_id):
     try:
-        res = supabase.table('actions').delete().eq('id', action_id).execute()
+        db = SessionLocal()
+        db.query(Action).filter(Action.id == action_id).delete()
+        db.commit()
         return jsonify({'message': 'Action deleted'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
-
 
 # --- Test Runs API Endpoints ---
 @app.route('/api/test_runs', methods=['GET'])
 def get_test_runs():
     try:
-        res = supabase.table('test_runs').select('*').order('timestamp', desc=True).execute()
-        return jsonify(res.data)
+        db = SessionLocal()
+        runs = db.query(TestRun).order_by(TestRun.timestamp.desc()).all()
+        return jsonify([{
+            "id": r.id, "total_tests": r.total_tests, "passed": r.passed,
+            "failed": r.failed, "results": r.results, "timestamp": r.timestamp
+        } for r in runs])
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/test_runs', methods=['POST'])
 def create_test_run():
     try:
-        payload = request.get_json()
-        test_run_data = {
-            'total_tests': payload.get('total_tests'),
-            'passed': payload.get('passed'),
-            'failed': payload.get('failed'),
-            'results': payload.get('results')
-        }
-        res = supabase.table('test_runs').insert(test_run_data).execute()
-        return jsonify(res.data), 201
+        db = SessionLocal()
+        
+        # Print raw request data and parsed payload for debugging
+        print("Headers:", dict(request.headers))
+        print("Raw body:", request.data)
+        
+        payload = request.get_json(force=True)
+        print("Parsed JSON payload:", payload)
+
+        new_run = TestRun(
+            total_tests=payload.get('total_tests'),
+            passed=payload.get('passed'),
+            failed=payload.get('failed'),
+            results=payload.get('results')
+        )
+        db.add(new_run)
+        db.commit()
+        db.refresh(new_run)
+        return jsonify({"id": new_run.id}), 201
     except Exception as e:
+        import traceback
+        print("Exception:", str(e))
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 400
 
-# --- Original API Endpoints ---
+# --- Test Case Execution Endpoint ---
+@app.route('/api/run_test_case', methods=['POST'])
+def run_test_case():
+    try:
+        db = SessionLocal()
+        payload = request.get_json()
+        prompt = payload.get('prompt')
+        username = payload.get('username')
+        password = payload.get('password')
+        test_case_id = payload.get('test_case_id')
+
+        if not all([prompt, username, password]):
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+        pre_prompt = f"""You are a browser automation agent...
+Email: {username}
+Password: {password}
+"""
+        final_prompt = f"{pre_prompt} {prompt}"
+
+        result = run_prompt(final_prompt)
+        response = {
+            "status": "success",
+            "result": result.get("text", "No text result returned."),
+            "test_status": result.get("status", "completed")
+        }
+        if result.get("gif_path"):
+            response["gif_url"] = "/" + result["gif_path"]
+        if result.get("pdf_path"):
+            response["pdf_url"] = "/" + result["pdf_path"]
+
+        # Update test case status if ID is provided
+        if test_case_id:
+            db.query(TestCase).filter(TestCase.id == test_case_id).update({"status": result.get("status", "completed")})
+            db.commit()
+
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- Original LLM Endpoints ---
 @app.route("/generate-action-json", methods=["POST"])
 def generate_action_json_route():
-    """
-    Called by the "Generate Steps JSON" button.
-    Takes a natural language prompt and asks the LLM to convert it into a JSON object.
-    """
     data = request.json
     prompt = data.get("prompt")
-    
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
 
     json_generation_pre_prompt = f"""
-You are an expert at converting natural language instructions into a structured JSON format for a browser automation tool. Your task is to generate a JSON object containing a "steps" array. Each object in the array represents a single, atomic browser action.
-
-The supported actions and their required formats are:
-- {{"action": "navigate", "url": "https://example.com"}}
-- {{"action": "input", "selector": "css_selector", "value": "text_to_type"}}
-- {{"action": "click", "selector": "css_selector"}}
-- {{"action": "wait", "time": 2000}} (time is in milliseconds)
-- {{"action": "screenshot", "name": "screenshot_name"}}
-
-Based on the user's request below, generate ONLY the JSON object. You can wrap it in ```
-
+You are an expert at converting natural language instructions into a structured JSON format for a browser automation tool.
+Given a user request, generate a JSON object with an "actions" array, where each action has a "type" (e.g., "click", "type", "navigate") and "details" (e.g., selector, text, url).
 User Request: "{prompt}"
 """
-
     try:
         result = run_prompt(json_generation_pre_prompt)
-        print(result)
         raw_text = result.get("text", "")
         json_string = extract_json_from_string(raw_text)
-        
         if not json_string:
-            return jsonify({
-                "error": "The agent did not return a recognizable JSON object.",
-                "raw_output": raw_text
-            }), 500
-        
+            return jsonify({"error": "Could not extract JSON", "raw_output": raw_text}), 500
         generated_json = json.loads(json_string)
         return jsonify(generated_json)
-        
-    except json.JSONDecodeError:
-        return jsonify({
-            "error": "Failed to parse JSON from the agent. The extracted response was not valid JSON.",
-            "raw_output": json_string
-        }), 500
     except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/run", methods=["POST"])
 def execute_test_run_route():
     data = request.json
-    print(f"[DEBUG] /run payload: {data}")  # Debug print incoming JSON
-
     prompt = data.get("prompt")
     username = data.get("username")
     password = data.get("password")
-    print(username)
-    print(password)
-
     if not all([prompt, username, password]):
-        print("[ERROR] Missing required fields in /run")
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
 
-    pre_prompt = f"""You are a browser automation agent. Your goal is to execute a series of steps.
-
-1. Navigate to the login page: https://testing.praxilabs-lms.com
-2. Wait for the login form to fully load. Use CSS selectors:
-   - Email input: input[type="email"]
-   - Password input: input[type="password"]
-   - Login button: button[type="submit"]
-3. Log in using:
-   - Email: {username}
-   - Password: {password}
-4. Verify successful login by checking for a visible "Courses" tab. Retry once if it fails.
-5. After successful login, execute the following steps defined in the JSON:
+    pre_prompt = f"""You are a browser automation agent...
+Email: {username}
+Password: {password}
 """
-
     final_prompt = f"{pre_prompt} {prompt}"
 
     try:
@@ -331,14 +495,10 @@ def execute_test_run_route():
             response["gif_url"] = "/" + result["gif_path"]
         if result.get("pdf_path"):
             response["pdf_url"] = "/" + result["pdf_path"]
-
         return jsonify(response)
-
     except Exception as e:
-        print(f"[ERROR] Exception in /run: {str(e)}")
-        print(traceback.format_exc())
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, port=5000)
+
