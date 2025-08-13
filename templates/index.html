@@ -4,94 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Case Management Dashboard</title>
-    <link rel="stylesheet" href="static/css/styles.css">
+    <link rel="stylesheet" href="app_static/css/styles.css">
+    <script src="app_static/js/script.js" defer></script>
 </head>
 <body>
-    <div class="container">
+    <header>
         <h1>Test Case Management Dashboard</h1>
         <p>Manage test cases, users, actions, and view execution reports</p>
+        <div id="user-info"></div>
+        <button id="theme-toggle" onclick="document.body.classList.toggle('dark')">Toggle Dark Mode</button>
+    </header>
+    
+    <nav class="navbar">
+        <button class="nav-button" onclick="app.openTab('test-cases')">Test Cases</button>
+        <button class="nav-button" onclick="app.openTab('users')">Users</button>
+        <button class="nav-button" onclick="app.openTab('actions')">Actions</button>
+        <button class="nav-button" onclick="app.openTab('reports')">Reports</button>
+    </nav>
 
-        <!-- Tabs Navigation -->
-        <div class="tabs">
-            <button class="tab-button active" onclick="openTab('test-cases')">Test Cases</button>
-            <button class="tab-button" onclick="openTab('users')">Users</button>
-            <button class="tab-button" onclick="openTab('actions')">Actions</button>
-            <button class="tab-button" onclick="openTab('reports')">Test Run Reports</button>
-        </div>
-
-        <!-- Test Cases Tab -->
-        <div id="test-cases" class="tab-content active">
+    <div class="container">
+        <div id="test-cases" class="tab-content">
             <h2>Create Test Case</h2>
-            <form id="test-case-form">
-                <label for="test-title">Test Case Title:</label>
-                <input type="text" id="test-title" placeholder="Enter test case title">
-
-                <label for="user-select">Select User:</label>
+            <form id="test-case-form" method="POST" action="/api/test_cases">
+                <label>Test Case Title:</label>
+                <input type="text" id="test-case-title" required>
+                
+                <label>Select User:</label>
                 <select id="user-select"></select>
-
+                
                 <label>Select Actions:</label>
                 <div id="actions-checkboxes"></div>
-
-                <label for="prompt-steps">Prompt Steps JSON:</label>
-                <textarea id="prompt-steps" rows="5" placeholder='{"steps": [{"action": "login", "data": {...}}]}'></textarea>
-
-                <button type="button" onclick="addTestCase()">Add Test Case</button>
+                
+                <label>Prompt Steps JSON:</label>
+                <textarea id="prompt-steps" rows="5"></textarea>
+                
+                <button type="submit">Add Test Case</button>
             </form>
 
             <h2>Existing Test Cases</h2>
             <div id="test-case-list" class="test-case-list"></div>
-
-            <button onclick="runTests()">Run All Tests</button>
+            
         </div>
 
-        <!-- Users Tab -->
         <div id="users" class="tab-content">
             <h2>Manage Users</h2>
-            <form id="user-form">
-                <input type="text" id="user-name" placeholder="Name">
-                <input type="email" id="user-email" placeholder="Email">
-                <input type="password" id="user-password" placeholder="Password">
-                <button type="button" id="add-user-btn" onclick="addUser()">Add User</button>
+            <form id="register-form" method="POST" action="/api/users">
+                <label>Name:</label>
+                <input type="text" id="register-name" required>
+                <label>Email:</label>
+                <input type="email" id="register-email" required>
+                <label>Password:</label>
+                <input type="password" id="register-password" required>
+                <button type="submit">Add User</button>
             </form>
-
-            <table id="users-table">
-                <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
-                <tbody></tbody>
+            
+            <h2>User List</h2>
+            <table id="user-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="user-list"></tbody>
             </table>
         </div>
 
-        <!-- Actions Tab -->
         <div id="actions" class="tab-content">
-            <h2>Manage Actions</h2>
-            <form id="action-form">
-                <input type="text" id="action-prompt" placeholder="Prompt (e.g., User login)">
-                <textarea id="action-steps" rows="5" placeholder='{"steps": [{"action": "input", "selector": "#username", "value": "user"}]}'></textarea>
-                <button type="button" id="add-action-btn" onclick="addAction()">Add Action</button>
-            </form>
+    <h2>Actions Management</h2>
+    <form id="action-form">
+        <label>Action Prompt:</label>
+        <input type="text" id="action-prompt" placeholder="Enter action prompt">
+        <label>Steps JSON:</label>
+        <textarea id="action-steps" rows="5" placeholder='{"action": "click", "details": {"selector": "#button"}}'></textarea>
+        <button type="submit">Add Action</button>
+    </form>
+    <div id="action-list"></div>
+</div>
 
-            <table id="actions-table">
-                <thead><tr><th>ID</th><th>Prompt</th><th>Actions</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <!-- Reports Tab -->
         <div id="reports" class="tab-content">
-            <h2>Test Run Reports</h2>
-            <div id="reports-list"></div>
+            
+           
+
+            
         </div>
 
-        <!-- Modal for Editing/Viewing -->
         <div id="modal" class="modal">
             <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h2 id="modal-title"></h2>
-                <form id="modal-form"></form>
-                <button id="modal-save" onclick="saveModalChanges()">Save</button>
+                <span class="close" onclick="app.closeModal()">&times;</span>
+                <h2 id="modal-title">Edit</h2>
+                <div id="modal-form"></div>
+                <div class="modal-buttons">
+                    <button id="modal-save">Save</button>
+                    <button onclick="app.closeModal()" class="modal-cancel">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
-
-    <script src="static/js/script.js"></script>
 </body>
 </html>

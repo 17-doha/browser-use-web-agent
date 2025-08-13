@@ -4,11 +4,41 @@ services:
   app:
     build: .
     ports:
-      - "5000:5000"
+      - "5000:8080" # Map local 5000 to container 8080 for Azure compatibility
     volumes:
-      - ./app_static:/app/static  # Persists generated files
-      - ./playwright_cache:/root/.cache/ms-playwright  # Persists default cache
+      - ./app_static:/opt/defaultsite/app_static
+      - ./static:/opt/defaultsite/static
+      - browser_data:/home/www-data/.cache/ms-playwright
+      - browser_config:/home/www-data/.config/browseruse
     environment:
       - PYTHONUNBUFFERED=1
+      - BROWSER_USE_CONFIG_DIR=/opt/defaultsite/.config/browseruse
+      - HOME=/home/www-data
+      - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+      - SSL_CERT_DIR=/etc/ssl/certs
+      - PGCLIENTENCODING=utf8
+      - PYTHONPATH=/opt/defaultsite
+      - PLAYWRIGHT_BROWSERS_PATH=/home/www-data/.cache/ms-playwright
+      - PORT=8080
     env_file:
       - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8080/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+volumes:
+  browser_data:
+    driver: local
+  browser_config:
+    driver: local
+    
