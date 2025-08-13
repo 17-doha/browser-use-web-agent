@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y \
     libcups2 \
     libdbus-1-3 \
     libdrm2 \
-    libgbm1 \
     libgtk-3-0 \
     libnspr4 \
     libnss3 \
@@ -33,9 +32,8 @@ RUN apt-get update && apt-get install -y \
 # Update CA certificates for SSL connections
 RUN update-ca-certificates
 
-# Check if www-data group and user exist, create if not
-RUN if ! getent group www-data; then groupadd -r www-data; fi && \
-    if ! id -u www-data >/dev/null 2>&1; then useradd -r -g www-data -u 33 -m www-data; fi
+# Create www-data user and group (mimics Azure App Service default)
+RUN groupadd -r www-data && useradd -r -g www-data -u 33 -m www-data
 
 # Set working directory
 WORKDIR /opt/defaultsite
@@ -44,11 +42,8 @@ WORKDIR /opt/defaultsite
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright
-RUN pip install playwright
-
-# Install Playwright dependencies for Chromium
-RUN playwright install-deps chromium
+# Install Playwright and its dependencies
+RUN pip install playwright && playwright install-deps chromium
 
 # Set custom browser path for Playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/www-data/.cache/ms-playwright
@@ -58,9 +53,6 @@ RUN mkdir -p /home/www-data/.cache/ms-playwright \
     && mkdir -p static/screenshots static/gifs static/pdfs static/css static/js app_static/gifs app_static/pdfs \
     && mkdir -p /home/www-data/.config/browseruse /opt/defaultsite/.config/browseruse \
     && chown -R www-data:www-data /home/www-data /opt/defaultsite
-
-# Copy verification script
-COPY verify_playwright.py .
 
 # Copy application code
 COPY . .
@@ -75,7 +67,7 @@ USER www-data
 RUN playwright install chromium
 
 # Verify browser installation
-RUN python verify_playwright.py
+RUN python -c "from playwright.async_api import async_playwright; import asyncio; async def check(): ap = async_playwright(); await ap.__aenter__(); browser = await ap.chromium.launch(); await browser.close(); await ap.__aexit__(None, None, None); asyncio.run(check())"
 
 # Expose port
 ENV PORT=8080

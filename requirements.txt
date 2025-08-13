@@ -15,3 +15,5 @@ typing_extensions==4.14.1
 supabase==2.17.0
 supafunc==0.10.1
 flask-cors==6.0.1
+SQLAlchemy==2.0.42
+psycopg2-binary==2.9.10
