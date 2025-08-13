@@ -4,7 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from PIL import Image
 import imageio
-from browser_use import Agent, BrowserSession
+from browser_use import Agent, BrowserSession, Controller
 from browser_use.llm import ChatGoogle
 from playwright.async_api import async_playwright
 from pydantic import BaseModel, Field
@@ -30,6 +30,8 @@ from browser_use.controller.views import (
     SendKeysAction,
     SwitchTabAction,
 )
+from fpdf import FPDF
+
 
 logger = logging.getLogger(__name__)
 Context = TypeVar("Context")
