@@ -32,8 +32,10 @@ RUN apt-get update && apt-get install -y \
 # Update CA certificates for SSL connections
 RUN update-ca-certificates
 
-# Create www-data user and group (mimics Azure App Service default)
-RUN groupadd -r www-data && useradd -r -g www-data -u 33 -m www-data
+# Ensure www-data user exists and has a home directory
+RUN id -u www-data >/dev/null 2>&1 || (groupadd -r www-data && useradd -r -g www-data -u 33 www-data) \
+    && mkdir -p /home/www-data \
+    && chown www-data:www-data /home/www-data
 
 # Set working directory
 WORKDIR /opt/defaultsite
