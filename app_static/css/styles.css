@@ -365,44 +365,597 @@ td button {
     font-size: 1.1rem;
 }
 
+/* Add these CSS styles to your styles.css file */
+
 /* ==========================================================================
-   Report Summary
+   Reports Section Styles
    ========================================================================== */
-.report-summary {
+
+.reports-header {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-md);
-    justify-content: center;
-    margin-bottom: var(--spacing-lg);
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--border-light);
 }
 
-.summary-card {
+.reports-header h2 {
+    margin: 0;
+    color: var(--text-light);
+    font-size: var(--font-size-xl);
+}
+
+.run-all-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+.run-all-btn:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.play-icon {
+    font-size: 0.9rem;
+}
+
+.reports-summary {
+    background-color: var(--card-light);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-lg);
+    border: 1px solid var(--border-light);
+}
+
+.reports-summary p {
+    margin: 0;
+    color: var(--text-light);
+    font-size: var(--font-size-base);
+}
+
+.test-runs-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.test-run-card {
+    background-color: var(--card-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: 0 2px 4px var(--shadow-light);
+    transition: var(--transition);
+}
+
+.test-run-card:hover {
+    box-shadow: 0 4px 12px var(--shadow-light);
+}
+
+.test-run-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.test-run-header:hover {
+    background-color: var(--background-light);
+}
+
+.run-info h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.2rem;
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.run-datetime {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0;
+}
+
+.dark .run-datetime {
+    color: #bbb;
+}
+
+.run-results {
+    display: flex;
+    gap: var(--spacing-lg);
+    align-items: center;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.result-item.passed {
+    color: var(--success-color);
+}
+
+.result-item.failed {
+    color: var(--error-color);
+}
+
+.result-icon {
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.result-count {
+    font-size: 0.9rem;
+}
+
+.success-rate-section {
+    padding: 0 var(--spacing-lg) var(--spacing-lg);
+    border-top: 1px solid var(--border-light);
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+}
+
+.success-rate-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 500;
+}
+
+.success-rate-bar-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.success-rate-bar {
+    flex: 1;
+    height: 8px;
+    background-color: var(--header-light);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.success-rate-fill {
+    height: 100%;
+    background-color: var(--success-color);
+    transition: width 0.5s ease;
+    border-radius: 4px;
+}
+
+.success-rate-percentage {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-light);
+    min-width: 40px;
+    text-align: right;
+}
+
+.test-run-details {
+    border-top: 1px solid var(--border-light);
+    background-color: var(--background-light);
+}
+
+.failed-tests-section {
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.failed-tests-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    padding: var(--spacing-sm) 0;
+    color: var(--error-color);
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.failed-tests-header:hover {
+    color: var(--primary-color);
+}
+
+.expand-icon {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.failed-text {
+    font-size: 0.9rem;
+}
+
+.failed-tests-list {
+    margin-top: var(--spacing-md);
+    padding-left: var(--spacing-lg);
+}
+
+.failed-test-item {
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.failed-test-item:last-child {
+    border-bottom: none;
+}
+
+.failed-test-name {
+    font-weight: 500;
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.failed-test-reason {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 2px;
+}
+
+.dark .failed-test-reason {
+    color: #bbb;
+}
+/* Ensure action cards use the same styling as test case cards */
+.test-case-card p pre {
+    margin: 0;
+    padding: var(--spacing-sm);
+    background-color: var(--background-light);
+    border-radius: var(--border-radius);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.dark .test-case-card p pre {
+    background-color: #2e2e3e;
+    color: #e0e0e0;
+}
+
+/* Adjust button spacing for action cards if needed */
+.test-case-card .buttons button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.9rem;
+}
+
+/* Ensure grid layout works for actions */
+@media (max-width: 768px) {
+    .test-case-list {
+        grid-template-columns: 1fr; /* Stack cards on smaller screens */
+    }
+}
+
+.no-failed-tests {
+    color: var(--success-color);
+    font-size: 0.9rem;
+    font-style: italic;
+    padding: var(--spacing-sm) 0;
+}
+
+.no-runs-message {
+    text-align: center;
+    padding: var(--spacing-xl);
+    background-color: var(--card-light);
+    border-radius: var(--border-radius);
+    border: 2px dashed var(--border-light);
+}
+
+.no-runs-message h3 {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--text-light);
+    font-size: 1.2rem;
+}
+
+.no-runs-message p {
+    margin: 0;
+    color: #666;
+    font-size: var(--font-size-base);
+}
+
+.dark .no-runs-message p {
+    color: #bbb;
+}
+
+/* Add these additional CSS styles to your styles.css file */
+
+/* ==========================================================================
+   Run All Tests Button States
+   ========================================================================== */
+
+.run-all-btn:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.run-all-btn:disabled:hover {
+    background-color: #6c757d;
+    transform: none;
+}
+
+.spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Failed Test Details
+   ========================================================================== */
+
+.failed-test-details {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--header-light);
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--error-color);
+}
+
+.failed-test-details details {
+    cursor: pointer;
+}
+
+.failed-test-details summary {
+    font-size: 0.8rem;
+    color: var(--primary-color);
+    padding: var(--spacing-sm);
+    outline: none;
+    user-select: none;
+}
+
+.failed-test-details summary:hover {
+    background-color: var(--background-light);
+    border-radius: 4px;
+}
+
+.test-result-text {
+    background-color: var(--card-light);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* ==========================================================================
+   Loading States and Progress
+   ========================================================================== */
+
+.test-execution-progress {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-light);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    min-width: 300px;
+    text-align: center;
+    display: none;
+}
+
+.test-execution-progress.show {
+    display: block;
+}
+
+.progress-text {
+    margin: var(--spacing-md) 0;
+    font-weight: 500;
+}
+
+.progress-bar-full {
+    width: 100%;
+    height: 8px;
+    background-color: var(--header-light);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: var(--spacing-md) 0;
+}
+
+.progress-bar-full .fill {
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+.test-status-icon {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-md);
+}
+
+.test-status-icon.running {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ==========================================================================
+   Enhanced Result Cards
+   ========================================================================== */
+
+.test-run-card.running {
+    border-left: 4px solid var(--primary-color);
+    background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.result-item .count-badge {
+    background-color: var(--background-light);
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-left: var(--spacing-sm);
+}
+
+.result-item.passed .count-badge {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--success-color);
+}
+
+.result-item.failed .count-badge {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--error-color);
+}
+
+/* ==========================================================================
+   Toast Notifications (Optional Enhancement)
+   ========================================================================== */
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
     background: var(--card-light);
     border: 1px solid var(--border-light);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
-    box-shadow: 0 2px 4px var(--shadow-light);
-    text-align: center;
-    min-width: 200px;
+    box-shadow: 0 4px 12px var(--shadow-light);
+    z-index: 1000;
+    min-width: 300px;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+    border-left: 4px solid var(--error-color);
+}
+
+.toast.info {
+    border-left: 4px solid var(--primary-color);
+}
+
+.toast-header {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
 }
 
-.summary-label {
-    font-size: var(--font-size-base);
-    color: #666;
-    margin-bottom: var(--spacing-sm);
+.toast-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.dark .summary-label {
+.toast-close:hover {
+    color: var(--text-light);
+}
+
+.toast-body {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.dark .toast-body {
     color: #bbb;
 }
 
-.summary-value {
-    font-size: var(--font-size-xl);
-    font-weight: bold;
-    color: var(--text-light);
+/* ==========================================================================
+   Responsive Design for Reports
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .reports-header {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        align-items: stretch;
+    }
+    
+    .run-all-btn {
+        align-self: center;
+    }
+    
+    .test-run-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+    
+    .run-results {
+        justify-content: space-around;
+    }
+    
+    .success-rate-bar-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+    }
+    
+    .success-rate-percentage {
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .run-results {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .result-item {
+        justify-content: center;
+    }
+    
+    .failed-tests-list {
+        padding-left: var(--spacing-md);
+    }
 }
 
 /* ==========================================================================

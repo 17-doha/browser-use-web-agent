@@ -44,7 +44,6 @@
             <h2>Existing Test Cases</h2>
             <div id="test-case-list" class="test-case-list"></div>
             
-            <button onclick="app.runAllTests()">Run All Tests</button>
         </div>
 
         <div id="users" class="tab-content">
@@ -74,43 +73,22 @@
         </div>
 
         <div id="actions" class="tab-content">
-            <h2>Actions Management</h2>
-            <form id="action-form" method="POST" action="/api/actions">
-                <label>Action Prompt:</label>
-                <input type="text" id="action-prompt" required>
-                
-                <label>Steps JSON:</label>
-                <textarea id="action-steps" rows="5" required></textarea>
-                
-                <button type="submit">Add Action</button>
-            </form>
-            
-            <div id="action-list"></div>
-        </div>
+    <h2>Actions Management</h2>
+    <form id="action-form">
+        <label>Action Prompt:</label>
+        <input type="text" id="action-prompt" placeholder="Enter action prompt">
+        <label>Steps JSON:</label>
+        <textarea id="action-steps" rows="5" placeholder='{"action": "click", "details": {"selector": "#button"}}'></textarea>
+        <button type="submit">Add Action</button>
+    </form>
+    <div id="action-list"></div>
+</div>
 
         <div id="reports" class="tab-content">
-            <div class="report-summary">
-                <div class="summary-card">
-                    <div class="summary-label">Total Test Cases</div>
-                    <div class="summary-value" id="total-tests">0</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-label">Total Runs</div>
-                    <div class="summary-value" id="total-runs">0</div>
-                    <button onclick="app.runAllTests()">Run All Tests</button>
-                </div>
-            </div>
+            
+           
 
-            <h2>Test Execution Results</h2>
-            <table id="reports-table">
-                <tr>
-                    <th>Run Number</th>
-                    <th>Total Tests</th>
-                    <th>Failed Count</th>
-                    <th>Success Rate</th>
-                    <th>Execution Timestamp</th>
-                </tr>
-            </table>
+            
         </div>
 
         <div id="modal" class="modal">

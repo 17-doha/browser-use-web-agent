@@ -3,6 +3,7 @@ FROM python:3.11-slim
 # Install system dependencies for Playwright and PostgreSQL
 RUN apt-get update && apt-get install -y \
     fonts-liberation \
+    fonts-unifont \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -30,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+
 # Update CA certificates for SSL connections
 RUN update-ca-certificates
 
@@ -44,11 +46,11 @@ WORKDIR /opt/defaultsite
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright
+# Install Playwright for Python
 RUN pip install playwright
 
-# Install Playwright dependencies for Chromium
-RUN playwright install-deps chromium
+# Install Chromium browser for Playwright (no --with-deps, dependencies already installed)
+RUN playwright install chromium
 
 # Set custom browser path for Playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/www-data/.cache/ms-playwright
@@ -71,7 +73,7 @@ RUN chown -R www-data:www-data /opt/defaultsite
 # Switch to www-data user
 USER www-data
 
-# Install Playwright browsers
+# Install Playwright browser for the www-data user
 RUN playwright install chromium
 
 # Verify browser installation
@@ -93,5 +95,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/', timeout=5)" || exit 1
 
 # Run the application with gunicorn
-# Adjust 'app:app' to 'application:app' if your WSGI object is named 'application'
 ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "600", "--access-logfile", "-", "--error-logfile", "-", "--chdir", "/opt/defaultsite", "app:app"]

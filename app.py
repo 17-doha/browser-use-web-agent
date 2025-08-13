@@ -67,9 +67,9 @@ class TestCase(Base):
     __tablename__ = "test_cases"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
-    user_id = Column(String, ForeignKey('users.id')) # Changed to String
-    actions = Column(JSON)          # store arrays/dicts directly
-    prompt_steps = Column(JSON)     # store dicts directly
+    user_id = Column(String, ForeignKey('users.id'))
+    actions = Column(JSON)  # Keep as JSON for action IDs
+    prompt_steps = Column(Text)  # Change from JSON to Text
     status = Column(String)
     gif_path = Column(String)
     pdf_url = Column(String)
@@ -87,7 +87,7 @@ class TestRun(Base):
     total_tests = Column(Integer)
     passed = Column(Integer)
     failed = Column(Integer)
-    results = Column(Text)
+    results = Column(JSON)  # Changed from Text to JSON
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 # Create tables with retry logic
@@ -263,11 +263,45 @@ def create_test_case():
         payload = request.get_json(force=True)
         print("Parsed JSON payload:", payload)
 
+        # Extract and validate action_ids
+        action_ids = payload.get('actions', [])
+        if not isinstance(action_ids, (list, tuple)):
+            action_ids = []
+        action_ids = [int(aid) for aid in action_ids if str(aid).isdigit()]
+        
+        # Parse user_prompt as JSON
+        user_prompt = payload.get('prompt_steps', '{}')
+        try:
+            prompt_data = json.loads(user_prompt) if user_prompt else {}
+        except json.JSONDecodeError:
+            prompt_data = {'error': 'Invalid JSON in prompt_steps'}
+
+        # Fetch selected actions from the database
+        action_prompts = []
+        if action_ids:
+            actions = db.query(Action).filter(Action.id.in_(action_ids)).all()
+            for action in actions:
+                steps = action.steps_json
+                if isinstance(steps, (dict, list)):
+                    steps = json.dumps(steps)
+                action_prompts.append({
+                    "trigger": action.prompt,
+                    "steps": steps
+                })
+
+        # Merge user_prompt with action prompts into a valid JSON structure
+        merged_data = prompt_data.copy()
+        if action_prompts:
+            merged_data['action_prompts'] = action_prompts
+
+        # Convert to JSON string for storage
+        merged_prompt = json.dumps(merged_data)
+
         new_case = TestCase(
             title=payload.get('title'),
             user_id=payload.get('user_id'),
-            actions=json.dumps(payload.get('actions')),
-            prompt_steps=json.dumps(payload.get('prompt_steps')),
+            actions=json.dumps(action_ids),  # Store action IDs as JSON
+            prompt_steps=merged_prompt,     # Store merged prompt as valid JSON
             status=payload.get('status', 'pending'),
             gif_path=payload.get('gif_path'),
             pdf_url=payload.get('pdf_url')
@@ -281,7 +315,12 @@ def create_test_case():
         import traceback
         print("Exception occurred:", str(e))
         traceback.print_exc()
+        if db:
+            db.rollback()
         return jsonify({'error': str(e)}), 400
+    finally:
+        if db:
+            db.close()
 
 @app.route('/api/test_cases/<int:case_id>', methods=['PUT'])
 def update_test_case(case_id):
@@ -405,6 +444,226 @@ def create_test_run():
         print("Exception:", str(e))
         traceback.print_exc()
         return jsonify({'error': str(e)}), 400
+    
+# Add this new endpoint to your app.py file
+
+@app.route('/api/run_all_tests', methods=['POST'])
+def run_all_tests():
+    """Execute all test cases and create a test run record"""
+    session = None
+    try:
+        session = get_db_session()
+        payload = request.get_json()
+        test_case_ids = payload.get('test_case_ids', [])
+        user_passwords = payload.get('user_passwords', {})
+        
+        if not test_case_ids:
+            return jsonify({'error': 'No test cases provided'}), 400
+        
+        # Get all test cases to run
+        test_cases = session.query(TestCase).filter(TestCase.id.in_(test_case_ids)).all()
+        
+        if not test_cases:
+            return jsonify({'error': 'No valid test cases found'}), 400
+        
+        # Initialize counters
+        total_tests = len(test_cases)
+        passed_count = 0
+        failed_count = 0
+        results = []
+        
+        print(f"[INFO] Starting batch execution of {total_tests} test cases")
+        
+        # Execute each test case
+        for i, test_case in enumerate(test_cases):
+            try:
+                print(f"[INFO] Running test case {i+1}/{total_tests}: {test_case.title}")
+                
+                # Get user credentials for this test case
+                user = session.query(User).filter(User.id == test_case.user_id).first()
+                if not user:
+                    print(f"[WARNING] No user found for test case {test_case.id}")
+                    failed_count += 1
+                    results.append({
+                        'test_case_id': test_case.id,
+                        'title': test_case.title,
+                        'status': 'failed',
+                        'error': 'User not found'
+                    })
+                    continue
+                
+                # Get password from user_passwords
+                password = user_passwords.get(str(test_case.user_id))
+                if not password:
+                    print(f"[WARNING] No password provided for user {user.id} in test case {test_case.id}")
+                    failed_count += 1
+                    results.append({
+                        'test_case_id': test_case.id,
+                        'title': test_case.title,
+                        'status': 'failed',
+                        'error': 'Password not provided'
+                    })
+                    continue
+                
+                # Prepare the prompt
+                username = user.email
+                prompt = test_case.prompt_steps
+                
+                # Convert prompt_steps to string if it's stored as JSON
+                if isinstance(prompt, (dict, list)):
+                    prompt = json.dumps(prompt)
+                
+                pre_prompt = f"""You are a browser automation agent.
+
+1. Navigate to the login page: https://testing.praxilabs-lms.com
+
+2. Wait for the login form to fully load. Use the following exact CSS selectors to locate the form fields:
+   - Email input: input[type="email"]
+   - Password input: input[type="password"]
+   - Login button: button[type="submit"], or a button containing "Login"
+
+3. Log in using:
+   - Email: {username}
+   - Password: {password}
+
+4. Verify login was successful by checking for a visible "Courses" tab.
+
+5. If login fails, retry once.
+
+6. After successful login:
+"""
+                
+                final_prompt = f"{pre_prompt} {prompt}"
+                
+                # Execute the test case
+                result = run_prompt(final_prompt)
+                
+                # Update test case with results
+                status = result.get("status", "completed")
+                update_data = {"status": status}
+                
+                if result.get("gif_path"):
+                    update_data["gif_path"] = "/app_static/gifs/" + result["gif_path"].split("/")[-1]
+                if result.get("pdf_path"):
+                    update_data["pdf_url"] = "/app_static/pdfs/" + result["pdf_path"].split("/")[-1]
+                
+                # Update test case in database
+                session.query(TestCase).filter(TestCase.id == test_case.id).update(update_data)
+                
+                # Count results
+                if status in ['completed', 'success', 'passed']:
+                    passed_count += 1
+                else:
+                    failed_count += 1
+                
+                results.append({
+                    'test_case_id': test_case.id,
+                    'title': test_case.title,
+                    'status': status,
+                    'gif_url': update_data.get('gif_path'),
+                    'pdf_url': update_data.get('pdf_url'),
+                    'result_text': result.get("text", "")
+                })
+                
+                print(f"[INFO] Test case {test_case.title} completed with status: {status}")
+                
+            except Exception as e:
+                print(f"[ERROR] Failed to execute test case {test_case.id}: {str(e)}")
+                failed_count += 1
+                results.append({
+                    'test_case_id': test_case.id,
+                    'title': test_case.title,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+        
+        # Calculate success rate
+        success_rate = round((passed_count / total_tests) * 100, 2) if total_tests > 0 else 0
+        
+        # Create test run record
+        test_run = TestRun(
+            total_tests=total_tests,
+            passed=passed_count,
+            failed=failed_count,
+            results=results,  # Store as Python object (assuming JSON column type)
+            timestamp=datetime.utcnow()
+        )
+        
+        session.add(test_run)
+        session.commit()
+        session.refresh(test_run)
+        
+        print(f"[INFO] Batch execution completed. Run ID: {test_run.id}")
+        print(f"[INFO] Results - Total: {total_tests}, Passed: {passed_count}, Failed: {failed_count}")
+        
+        response_data = {
+            'status': 'success',
+            'run_id': test_run.id,
+            'total_tests': total_tests,
+            'passed': passed_count,
+            'failed': failed_count,
+            'success_rate': success_rate,
+            'results': results,
+            'timestamp': test_run.timestamp.isoformat()
+        }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        if session:
+            session.rollback()
+        print(f"[ERROR] Batch execution failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Batch execution failed: {str(e)}'}), 500
+    finally:
+        if session:
+            session.close()
+
+# Also add this helper endpoint to get detailed results for a specific run
+@app.route('/api/test_runs/<int:run_id>/details', methods=['GET'])
+def get_test_run_details(run_id):
+    """Get detailed results for a specific test run"""
+    session = None
+    try:
+        session = get_db_session()
+        test_run = session.query(TestRun).filter(TestRun.id == run_id).first()
+        
+        if not test_run:
+            return jsonify({'error': 'Test run not found'}), 404
+        
+        # Handle results based on their type
+        detailed_results = []
+        if test_run.results:
+            if isinstance(test_run.results, (list, dict)):
+                # Already deserialized (e.g., by SQLAlchemy JSON type)
+                detailed_results = test_run.results
+            elif isinstance(test_run.results, str):
+                # Parse JSON string if it's a string
+                try:
+                    detailed_results = json.loads(test_run.results)
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing test run results: {e}")
+                    detailed_results = []
+            else:
+                print(f"Unexpected results type: {type(test_run.results)}")
+                detailed_results = []
+        
+        return jsonify({
+            'run_id': test_run.id,
+            'total_tests': test_run.total_tests,
+            'passed': test_run.passed,
+            'failed': test_run.failed,
+            'timestamp': test_run.timestamp.isoformat(),
+            'detailed_results': detailed_results
+        })
+        
+    except Exception as e:
+        print(f"Error getting test run details: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if session:
+            session.close()
 
 # --- Test Case Execution Endpoint ---
 @app.route('/api/run_test_case', methods=['POST'])
@@ -420,9 +679,24 @@ def run_test_case():
         if not all([prompt, username, password]):
             return jsonify({"status": "error", "message": "Missing required fields"}), 400
 
-        pre_prompt = f"""You are a browser automation agent...
-Email: {username}
-Password: {password}
+        pre_prompt = f"""You are a browser automation agent.
+
+1. Navigate to the login page: https://testing.praxilabs-lms.com
+
+2. Wait for the login form to fully load. Use the following exact CSS selectors to locate the form fields:
+   - Email input: input[type="email"]
+   - Password input: input[type="password"]
+   - Login button: button[type="submit"], or a button containing "Login"
+
+3. Log in using:
+   - Email: {username}
+   - Password: {password}
+
+4. Verify login was successful by checking for a visible "Courses" tab.
+
+5. If login fails, retry once.
+
+6. After successful login:
 """
         final_prompt = f"{pre_prompt} {prompt}"
 

@@ -210,8 +210,6 @@ class BrowserUseWebAgent {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(testCase)
-                    
-
                 });
                 console.log("Saving test case:", testCase);
                 console.log("User ID:", testCase.user_id);
@@ -326,21 +324,33 @@ class BrowserUseWebAgent {
         }
 
         // Test case form
-        const testCaseForm = document.getElementById('test-case-form');
-        if (testCaseForm) {
-            testCaseForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const title = document.getElementById('test-case-title').value;
-                const userId = document.getElementById('user-select').value;
-                const actions = [...document.querySelectorAll('#actions-checkboxes input:checked')].map(cb => cb.value);
-                const promptSteps = document.getElementById('prompt-steps').value;
-                await this.saveTestCase({ title, user_id: userId, actions, prompt_steps: promptSteps });
-                testCaseForm.reset();
-                await this.loadTestCases();
-                this.renderTestCaseList();
-            });
+       const testCaseForm = document.getElementById('test-case-form');
+if (testCaseForm) {
+    testCaseForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('test-case-title').value.trim();
+        const userId = document.getElementById('user-select').value;
+        const actions = [...document.querySelectorAll('#actions-checkboxes input:checked')]
+            .map(cb => parseInt(cb.value, 10))
+            .filter(id => !isNaN(id));
+        const promptSteps = document.getElementById('prompt-steps').value.trim();
+
+        if (!title || !userId) {
+            alert('Please fill in title and select a user!');
+            return;
         }
 
+        const mergedPrompt = await this.previewMergedPrompt(actions, promptSteps);
+        if (!confirm(`Preview of merged prompt:\n\n${mergedPrompt}\n\nProceed with saving test case?`)) {
+            return;
+        }
+
+        await this.saveTestCase({ title, user_id: userId, actions, prompt_steps: promptSteps });
+        testCaseForm.reset();
+        await this.loadTestCases();
+        this.renderTestCaseList();
+    });
+}
         // Action form
         const actionForm = document.getElementById('action-form');
         if (actionForm) {
@@ -484,95 +494,346 @@ renderTestCaseList() {
     }
 
     renderActions() {
-        const list = document.getElementById('action-list');
-        if (!list) return;
-        // Ensure actions is always an array
-        if (!Array.isArray(this.actions)) {
-            console.warn('actions is not an array, resetting to empty array');
-            this.actions = [];
-        }
-        list.innerHTML = `
-            <table class="action-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Prompt</th>
-                        <th>Steps JSON</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.actions.map(action => `
-                        <tr>
-                            <td>${action.id}</td>
-                            <td>${action.prompt}</td>
-                            <td><pre>${typeof action.steps_json === "string" ? action.steps_json : JSON.stringify(action.steps_json, null, 2)}</pre></td>
-                            <td>
-                                <button onclick="app.viewAction('${action.id}')">View</button>
-                                <button onclick="app.editAction('${action.id}')">Edit</button>
-                                <button onclick="app.deleteAction('${action.id}')">Delete</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
+    const list = document.getElementById('action-list');
+    if (!list) return;
+
+    if (!Array.isArray(this.actions)) {
+        console.warn('actions is not an array, resetting to empty array');
+        this.actions = [];
     }
 
-    renderReports() {
-        const table = document.getElementById('reports-table');
-        if (!table) return;
+    list.innerHTML = `
+        <div class="test-case-list"> <!-- Reuse test-case-list grid layout -->
+            ${this.actions.map(action => `
+                <div class="test-case-card">
+                    <h3>${action.prompt}</h3>
+                    <div class="buttons">
+                        <button onclick="app.viewAction(${action.id})">View</button>
+                        <button onclick="app.editAction(${action.id})">Edit</button>
+                        <button onclick="app.deleteAction(${action.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+viewAction(id) {
+    const action = this.actions.find(a => a.id === id);
+    if (!action) return;
+    document.getElementById('modal-title').textContent = `Action #${id}`;
+    document.getElementById('modal-form').innerHTML = `
+        <p><strong>Prompt:</strong> ${action.prompt}</p>
+        <p><strong>Steps JSON:</strong></p>
+        <pre>${typeof action.steps_json === 'string' ? action.steps_json : JSON.stringify(action.steps_json, null, 2)}</pre>
+    `;
+    document.getElementById('modal-save').style.display = 'none'; // Hide save button since this is a view-only mode
+    document.getElementById('modal').style.display = 'block';
+}
+    // Replace the existing renderReports() method in script.js with this updated version
+
+renderReports() {
+    const reportsContainer = document.getElementById('reports');
+    if (!reportsContainer) return;
+    
+    // Ensure testRuns is always an array
+    if (!Array.isArray(this.testRuns)) {
+        console.warn('testRuns is not an array, resetting to empty array');
+        this.testRuns = [];
+    }
+    
+    // Calculate summary statistics
+    const totalTestCases = this.testCases.length;
+    const totalRuns = this.testRuns.length;
+    
+    // Sort test runs by timestamp (most recent first)
+    const sortedRuns = [...this.testRuns].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    reportsContainer.innerHTML = `
+        <div class="reports-header">
+            <h2>Test Execution Reports</h2>
+            <button class="run-all-btn" onclick="app.runAllTests()">
+                <span class="play-icon">▶</span>
+                Run All Tests
+            </button>
+        </div>
         
-        // Ensure testRuns is always an array
-        if (!Array.isArray(this.testRuns)) {
-            console.warn('testRuns is not an array, resetting to empty array');
-            this.testRuns = [];
+        <div class="reports-summary">
+            <p>View test execution history and results. Total Test Cases: ${totalTestCases} | Total Runs: ${totalRuns}</p>
+        </div>
+        
+        <div class="test-runs-container">
+            ${sortedRuns.length > 0 ? sortedRuns.map((run, index) => {
+                const successRate = run.total_tests > 0 ? Math.round((run.passed / run.total_tests) * 100) : 0;
+                const runDate = new Date(run.timestamp);
+                const formattedDate = runDate.toLocaleDateString();
+                const formattedTime = runDate.toLocaleTimeString();
+                
+                return `
+                    <div class="test-run-card">
+                        <div class="test-run-header" onclick="app.toggleRunDetails(${run.id})">
+                            <div class="run-info">
+                                <h3>Run #${run.id}</h3>
+                                <div class="run-datetime">${formattedDate}, ${formattedTime}</div>
+                            </div>
+                            <div class="run-results">
+                                <div class="result-item passed">
+                                    <span class="result-icon">✓</span>
+                                    <span class="result-count">${run.passed || 0} passed</span>
+                                </div>
+                                <div class="result-item failed">
+                                    <span class="result-icon">✗</span>
+                                    <span class="result-count">${run.failed || 0} failed</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="success-rate-section">
+                            <div class="success-rate-label">Success Rate</div>
+                            <div class="success-rate-bar-container">
+                                <div class="success-rate-bar">
+                                    <div class="success-rate-fill" style="width: ${successRate}%"></div>
+                                </div>
+                                <div class="success-rate-percentage">${successRate}%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="test-run-details" id="run-details-${run.id}" style="display: none;">
+                            <div class="failed-tests-section">
+                                ${run.failed > 0 ? `
+                                    <div class="failed-tests-header" onclick="app.toggleFailedTests(${run.id})">
+                                        <span class="expand-icon">▶</span>
+                                        <span class="failed-text">View Failed Tests (${run.failed})</span>
+                                    </div>
+                                    <div class="failed-tests-list" id="failed-tests-${run.id}" style="display: none;">
+                                        ${this.getFailedTestsForRun(run)}
+                                    </div>
+                                ` : '<div class="no-failed-tests">No failed tests in this run</div>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') : `
+                <div class="no-runs-message">
+                    <h3>No test runs yet</h3>
+                    <p>Click "Run All Tests" to execute your test cases and see results here.</p>
+                </div>
+            `}
+        </div>
+    `;
+    
+    // Update summary cards if they exist
+    const totalTestsEl = document.getElementById('total-tests');
+    const totalRunsEl = document.getElementById('total-runs');
+    if (totalTestsEl) totalTestsEl.textContent = totalTestCases;
+    if (totalRunsEl) totalRunsEl.textContent = totalRuns;
+}
+
+// Add these new methods to the BrowserUseWebAgent class
+
+toggleRunDetails(runId) {
+    const detailsEl = document.getElementById(`run-details-${runId}`);
+    if (detailsEl) {
+        const isVisible = detailsEl.style.display !== 'none';
+        detailsEl.style.display = isVisible ? 'none' : 'block';
+    }
+}
+
+toggleFailedTests(runId) {
+    const failedTestsEl = document.getElementById(`failed-tests-${runId}`);
+    const expandIcon = document.querySelector(`#run-details-${runId} .expand-icon`);
+    
+    if (failedTestsEl && expandIcon) {
+        const isVisible = failedTestsEl.style.display !== 'none';
+        failedTestsEl.style.display = isVisible ? 'none' : 'block';
+        expandIcon.textContent = isVisible ? '▶' : '▼';
+    }
+}
+
+// Replace the getFailedTestsForRun method in script.js with this improved version
+
+async getFailedTestsForRun(run) {
+    try {
+        // Fetch detailed results for this run
+        const response = await fetch(`/api/test_runs/${run.id}/details`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch run details');
         }
         
-        const tbody = table.getElementsByTagName('tbody')[0];
-        tbody.innerHTML = this.testRuns.map(run => `
-            <tr>
-                <td>${run.id}</td>
-                <td>${run.total_tests}</td>
-                <td>${run.failed}</td>
-                <td>${((run.passed / run.total_tests) * 100).toFixed(2)}%</td>
-                <td>${new Date(run.timestamp).toLocaleString()}</td>
-            </tr>
+        const runDetails = await response.json();
+        const failedTests = runDetails.detailed_results.filter(result => 
+            !['completed', 'success', 'passed'].includes(result.status)
+        );
+        
+        if (failedTests.length === 0) {
+            return '<div class="no-failed-tests">No failed tests in this run</div>';
+        }
+        
+        return failedTests.map(test => `
+            <div class="failed-test-item">
+                <div class="failed-test-name">${test.title}</div>
+                <div class="failed-test-reason">
+                    Status: ${test.status} 
+                    ${test.error ? `- ${test.error}` : ''}
+                </div>
+                ${test.result_text ? `
+                    <div class="failed-test-details">
+                        <details>
+                            <summary>View Details</summary>
+                            <pre class="test-result-text">${test.result_text}</pre>
+                        </details>
+                    </div>
+                ` : ''}
+            </div>
         `).join('');
-        document.getElementById('total-tests').textContent = this.testCases.length;
-        document.getElementById('total-runs').textContent = this.testRuns.length;
+        
+    } catch (error) {
+        console.error('Error fetching failed tests:', error);
+        // Fallback to generic display
+        const failedCount = run.failed || 0;
+        if (failedCount === 0) return '';
+        
+        let failedTestsHtml = '';
+        for (let i = 1; i <= failedCount; i++) {
+            failedTestsHtml += `
+                <div class="failed-test-item">
+                    <div class="failed-test-name">Test Case ${i} - Failed</div>
+                    <div class="failed-test-reason">Unable to load details</div>
+                </div>
+            `;
+        }
+        return failedTestsHtml;
     }
+}
+
+// Also update the renderReports method to handle async getFailedTestsForRun
+async renderReports() {
+    const reportsContainer = document.getElementById('reports');
+    if (!reportsContainer) return;
+    
+    // Ensure testRuns is always an array
+    if (!Array.isArray(this.testRuns)) {
+        console.warn('testRuns is not an array, resetting to empty array');
+        this.testRuns = [];
+    }
+    
+    // Calculate summary statistics
+    const totalTestCases = this.testCases.length;
+    const totalRuns = this.testRuns.length;
+    
+    // Sort test runs by timestamp (most recent first)
+    const sortedRuns = [...this.testRuns].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    // Generate failed tests HTML for each run
+    const runsWithFailedTests = await Promise.all(sortedRuns.map(async (run) => {
+        const failedTestsHtml = await this.getFailedTestsForRun(run);
+        return { ...run, failedTestsHtml };
+    }));
+    
+    reportsContainer.innerHTML = `
+        <div class="reports-header">
+            <h2>Test Execution Reports</h2>
+            <button class="run-all-btn" onclick="app.runAllTests()">
+                <span class="play-icon">▶</span>
+                Run All Tests
+            </button>
+        </div>
+        
+        <div class="reports-summary">
+            <p>View test execution history and results. Total Test Cases: ${totalTestCases} | Total Runs: ${totalRuns}</p>
+        </div>
+        
+        <div class="test-runs-container">
+            ${runsWithFailedTests.length > 0 ? runsWithFailedTests.map((run, index) => {
+                const successRate = run.total_tests > 0 ? Math.round((run.passed / run.total_tests) * 100) : 0;
+                const runDate = new Date(run.timestamp);
+                const formattedDate = runDate.toLocaleDateString();
+                const formattedTime = runDate.toLocaleTimeString();
+                
+                return `
+                    <div class="test-run-card">
+                        <div class="test-run-header" onclick="app.toggleRunDetails(${run.id})">
+                            <div class="run-info">
+                                <h3>Run #${run.id}</h3>
+                                <div class="run-datetime">${formattedDate}, ${formattedTime}</div>
+                            </div>
+                            <div class="run-results">
+                                <div class="result-item passed">
+                                    <span class="result-icon">✓</span>
+                                    <span class="result-count">${run.passed || 0} passed</span>
+                                </div>
+                                <div class="result-item failed">
+                                    <span class="result-icon">✗</span>
+                                    <span class="result-count">${run.failed || 0} failed</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="success-rate-section">
+                            <div class="success-rate-label">Success Rate</div>
+                            <div class="success-rate-bar-container">
+                                <div class="success-rate-bar">
+                                    <div class="success-rate-fill" style="width: ${successRate}%"></div>
+                                </div>
+                                <div class="success-rate-percentage">${successRate}%</div>
+                            </div>
+                        </div>
+                        
+                        <div class="test-run-details" id="run-details-${run.id}" style="display: none;">
+                            <div class="failed-tests-section">
+                                ${run.failed > 0 ? `
+                                    <div class="failed-tests-header" onclick="app.toggleFailedTests(${run.id})">
+                                        <span class="expand-icon">▶</span>
+                                        <span class="failed-text">View Failed Tests (${run.failed})</span>
+                                    </div>
+                                    <div class="failed-tests-list" id="failed-tests-${run.id}" style="display: none;">
+                                        ${run.failedTestsHtml}
+                                    </div>
+                                ` : '<div class="no-failed-tests">No failed tests in this run</div>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') : `
+                <div class="no-runs-message">
+                    <h3>No test runs yet</h3>
+                    <p>Click "Run All Tests" to execute your test cases and see results here.</p>
+                </div>
+            `}
+        </div>
+    `;
+    
+    // Update summary cards if they exist
+    const totalTestsEl = document.getElementById('total-tests');
+    const totalRunsEl = document.getElementById('total-runs');
+    if (totalTestsEl) totalTestsEl.textContent = totalTestCases;
+    if (totalRunsEl) totalRunsEl.textContent = totalRuns;
+}
 
     populateSelects() {
-        const userSelect = document.getElementById('user-select');
-        if (userSelect) {
-            // Ensure users is always an array
-            if (!Array.isArray(this.users)) {
-                console.warn('users is not an array in populateSelects, resetting to empty array');
-                this.users = [];
-            }
-            
-            userSelect.innerHTML = '<option value="">Select User</option>' + this.users.map(user => `
-                <option value="${user.id}">${user.name}</option>
-            `).join('');
-        }
+    const userSelect = document.getElementById('user-select');
+    const editUserSelect = document.getElementById('edit-user');
+    const actionsCheckboxes = document.getElementById('actions-checkboxes');
+    const editActionsCheckboxes = document.getElementById('edit-actions-checkboxes');
 
-        const actionsCheckboxes = document.getElementById('actions-checkboxes');
-        if (actionsCheckboxes) {
-            // Ensure actions is always an array
-            if (!Array.isArray(this.actions)) {
-                console.warn('actions is not an array in populateSelects, resetting to empty array');
-                this.actions = [];
-            }
-            
-            actionsCheckboxes.innerHTML = this.actions.map(action => `
-                <label>
-                    <input type="checkbox" value="${action.prompt.replace(/"/g, '&quot;')}">
-                    ${action.prompt}
-                </label>
-            `).join('');
-        }
+    if (userSelect) {
+        userSelect.innerHTML = '<option value="">Select User</option>' + 
+            this.users.map(user => `<option value="${user.id}">${user.name}</option>`).join('');
     }
+    if (editUserSelect) {
+        editUserSelect.innerHTML = this.users.map(user => `<option value="${user.id}">${user.name}</option>`).join('');
+    }
+    if (actionsCheckboxes) {
+        actionsCheckboxes.innerHTML = this.actions.map(action => `
+            <label><input type="checkbox" value="${action.id}"> ${action.prompt}</label>
+        `).join('');
+    }
+    if (editActionsCheckboxes) {
+        editActionsCheckboxes.innerHTML = this.actions.map(action => `
+            <label><input type="checkbox" value="${action.id}"> ${action.prompt}</label>
+        `).join('');
+    }
+}
 
     // Modal methods
     viewTestCase(id) {
@@ -721,22 +982,44 @@ renderTestCaseList() {
     }
 
     async saveTestCaseChanges(id) {
-        const tc = this.testCases.find(t => t.id == id);
-        if (!tc) return;
-        tc.title = document.getElementById('edit-title').value.trim();
-        tc.user_id = document.getElementById('edit-user').value;
-        const checkedBoxes = document.querySelectorAll('#edit-actions-checkboxes input[type="checkbox"]:checked');
-        tc.actions = [...checkedBoxes].map(cb => cb.value);
-        const promptEdit = document.getElementById('edit-promptsteps').value;
-        try {
-            tc.prompt_steps = JSON.parse(promptEdit);
-        } catch(e) {
-            tc.prompt_steps = promptEdit;
-        }
-        await this.saveTestCase(tc);
-        await this.loadTestCases();
-        this.renderTestCaseList();
+    const tc = this.testCases.find(t => t.id == id);
+    if (!tc) return;
+    const title = document.getElementById('edit-title').value.trim();
+    const userId = document.getElementById('edit-user').value;
+    const actions = [...document.querySelectorAll('#edit-actions-checkboxes input[type="checkbox"]:checked')]
+        .map(cb => parseInt(cb.value, 10))
+        .filter(id => !isNaN(id));
+    const promptSteps = document.getElementById('edit-promptsteps').value.trim();
+
+    if (!title || !userId) {
+        alert('Please fill in title and select a user!');
+        return;
     }
+
+    const mergedPrompt = await this.previewMergedPrompt(actions, promptSteps);
+    if (!confirm(`Preview of merged prompt:\n\n${mergedPrompt}\n\nProceed with saving test case?`)) {
+        return;
+    }
+
+    tc.title = title;
+    tc.user_id = userId;
+    tc.actions = actions;
+    tc.prompt_steps = promptSteps;
+    await this.saveTestCase(tc);
+    await this.loadTestCases();
+    this.renderTestCaseList();
+}
+async previewMergedPrompt(actionIds, userPrompt) {
+    let mergedPrompt = userPrompt; // Start with user-provided prompt as JSON string
+    if (actionIds.length > 0) {
+        const actionDetails = this.actions
+            .filter(action => actionIds.includes(action.id))
+            .map(action => `Whenever you see "${action.prompt}", do the following test: ${typeof action.steps_json === 'string' ? action.steps_json : JSON.stringify(action.steps_json)}`);
+        // Append action details as a readable string for preview
+        mergedPrompt = `${userPrompt}\n\nAction Details:\n${actionDetails.join('\n')}`;
+    }
+    return mergedPrompt;
+}
 
     async saveUserChanges(id) {
         const user = this.users.find(u => u.id === id);
@@ -955,10 +1238,111 @@ renderTestCaseList() {
         }
     }
 
-    runAllTests() {
-        // Implementation to run all tests can be added here
-        alert('Run All Tests functionality to be implemented');
+    // Replace the existing runAllTests() method in script.js with this implementation
+
+async runAllTests() {
+    if (this.testCases.length === 0) {
+        alert('No test cases available to run.');
+        return;
     }
+
+    const runButton = document.querySelector('.run-all-btn');
+    const originalButtonText = runButton ? runButton.innerHTML : '';
+    
+    try {
+        // Show loading state
+        if (runButton) {
+            runButton.innerHTML = '<span class="spinner">⏳</span> Running Tests...';
+            runButton.disabled = true;
+        }
+
+        // Collect user passwords from localStorage
+        const userPasswords = {};
+        this.testCases.forEach(tc => {
+            if (tc.user_id) {
+                const password = localStorage.getItem(`user_${tc.user_id}_password`) || '';
+                if (password) {
+                    userPasswords[tc.user_id] = password;
+                } else {
+                    // Prompt for missing password
+                    const user = this.users.find(u => u.id == tc.user_id);
+                    const username = user ? user.email : '';
+                    const promptedPassword = prompt(`Please enter the password for user ${username} (Test Case: ${tc.title}):`, '') || '';
+                    if (promptedPassword) {
+                        userPasswords[tc.user_id] = promptedPassword;
+                        localStorage.setItem(`user_${tc.user_id}_password`, promptedPassword);
+                    }
+                }
+            }
+        });
+
+        // Check if all required passwords are available
+        const missingPasswords = this.testCases.filter(tc => tc.user_id && !userPasswords[tc.user_id]);
+        if (missingPasswords.length > 0) {
+            alert(`Cannot run tests: Missing passwords for test cases: ${missingPasswords.map(tc => tc.title).join(', ')}`);
+            return;
+        }
+
+        const response = await fetch('/api/run_all_tests', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                test_case_ids: this.testCases.map(tc => tc.id),
+                user_passwords: userPasswords
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Show success message
+            const message = `All tests completed!\n` +
+                          `Total: ${result.total_tests}\n` +
+                          `Passed: ${result.passed}\n` +
+                          `Failed: ${result.failed}\n` +
+                          `Success Rate: ${result.success_rate}%`;
+            
+            alert(message);
+            
+            // Reload data to show updated results
+            await this.loadTestCases();
+            await this.loadTestRuns();
+            this.renderAll();
+            
+            // Switch to reports tab to show results
+            this.openTab('reports');
+            
+        } else {
+            const error = await response.json();
+            alert(`Failed to run all tests: ${error.error || 'Unknown error'}`);
+        }
+        
+    } catch (error) {
+        console.error('Error running all tests:', error);
+        alert('Error running all tests: ' + error.message);
+    } finally {
+        // Reset button state
+        if (runButton) {
+            runButton.innerHTML = originalButtonText;
+            runButton.disabled = false;
+        }
+    }
+}
+
+// Also add this helper method to show progress during batch execution
+async runTestCaseWithProgress(testCase, index, total) {
+    const runButton = document.querySelector('.run-all-btn');
+    if (runButton) {
+        runButton.innerHTML = `<span class="spinner">⏳</span> Running Test ${index + 1}/${total}...`;
+    }
+    
+    // You can expand this to show individual test progress if needed
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve();
+        }, 100); // Small delay to show progress
+    });
+}
 
     async runTestCase(id) {
     const tc = this.testCases.find(t => t.id === id);
