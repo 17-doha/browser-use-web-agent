@@ -112,7 +112,10 @@ ENV PLAYWRIGHT_CHROMIUM_ARGS="--no-sandbox --disable-setuid-sandbox --disable-de
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/', timeout=5)" || exit 1
+    CMD curl --fail http://localhost:8080/ || exit 1
+
+# Debug: Test port binding before starting Gunicorn
+RUN echo "Testing port binding..." && python -m http.server 8080 --bind 0.0.0.0 & sleep 2 && kill $!
 
 # Run the application with gunicorn
 ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "1800", "--workers", "4", "--threads", "2", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "debug", "--chdir", "/opt/defaultsite", "app:app"]
