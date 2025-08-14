@@ -1344,18 +1344,19 @@ async runTestCaseWithProgress(testCase, index, total) {
     });
 }
 
-    // script.js
-// script.js
-async runTestCase(id) {
+    async runTestCase(id) {
     const tc = this.testCases.find(t => t.id === id);
     if (!tc) {
         alert('Test case not found.');
         return;
     }
+
+    // Look up the user associated with tc.user_id
     let username = '';
     let password = '';
     let userName = 'Unknown User';
     console.log("Running test case:", tc.user_id);
+
     if (tc.user_id) {
         const user = this.users.find(u => u.id == tc.user_id);
         if (user) {
@@ -1364,6 +1365,8 @@ async runTestCase(id) {
             password = localStorage.getItem(`user_${tc.user_id}_password`) || '';
         }
     }
+
+    // Prompt for credentials if missing
     if (!username || !password) {
         username = prompt('Please enter the username (email):', username) || '';
         password = prompt('Please enter the password:', '') || '';
@@ -1371,10 +1374,12 @@ async runTestCase(id) {
             alert('Username and password are required to run the test case.');
             return;
         }
+        // Store credentials in localStorage for the user_id
         if (tc.user_id) {
             localStorage.setItem(`user_${tc.user_id}_password`, password);
         }
     }
+
     try {
         const response = await fetch('/api/run_test_case', {
             method: 'POST',
@@ -1386,59 +1391,46 @@ async runTestCase(id) {
                 test_case_id: tc.id
             })
         });
-        // Log response details
-        console.log('Response status:', response.status);
-        console.log('Response headers:', [...response.headers.entries()]);
-        
-        const responseText = await response.text();
-        console.log('Raw server response:', responseText);
-        
         if (response.ok) {
-            try {
-                const result = JSON.parse(responseText);
-                console.log('Parsed server response:', result);
-
-                tc.status = result.test_status || 'unknown';
-                if (result.gif_url) tc.gif_path = result.gif_url;
-                if (result.pdf_url) tc.pdf_url = result.pdf_url;
-
-                console.log('Updated test case:', {
-                    id: tc.id,
-                    title: tc.title,
-                    status: tc.status,
-                    gif_path: tc.gif_path,
-                    pdf_url: tc.pdf_url,
-                    user_id: tc.user_id,
-                    user_name: userName
-                });
-
-                this.renderTestCaseList();
-
-                let message = `Test case "${tc.title}" ran successfully for ${userName}.\nStatus: ${result.test_status}`;
-                if (result.gif_url || result.pdf_url) {
-                    message += '\n\nMedia files generated:';
-                    if (result.gif_url) message += '\n- GIF recording available';
-                    if (result.pdf_url) message += '\n- PDF report available';
-                }
-                alert(message);
-            } catch (jsonError) {
-                console.error('Failed to parse JSON response:', jsonError);
-                alert(`Failed to run test case for ${userName}: Invalid JSON response from server\nStatus: ${response.status}\nRaw response: ${responseText}`);
+            const result = await response.json();
+            
+            // Debug logging
+            console.log('Server response for test case run:', result);
+            
+            // Update test case with results from server response
+            tc.status = result.test_status;
+            if (result.gif_url) tc.gif_path = result.gif_url;
+            if (result.pdf_url) tc.pdf_url = result.pdf_url;
+            
+            // Debug logging after update
+            console.log('Updated test case:', {
+                id: tc.id,
+                title: tc.title,
+                status: tc.status,
+                gif_path: tc.gif_path,
+                pdf_url: tc.pdf_url,
+                user_id: tc.user_id,
+                user_name: userName
+            });
+            
+            // Re-render the test case list to show the updated media buttons
+            this.renderTestCaseList();
+            
+            // Show success message with media options
+            let message = `Test case "${tc.title}" ran successfully for ${userName}.\nStatus: ${result.test_status}`;
+            if (result.gif_url || result.pdf_url) {
+                message += '\n\nMedia files generated:';
+                if (result.gif_url) message += '\n- GIF recording available';
+                if (result.pdf_url) message += '\n- PDF report available';
             }
+            alert(message);
         } else {
-            let errorMessage = `Failed to run test case for ${userName}: Server returned status ${response.status}`;
-            try {
-                const error = JSON.parse(responseText);
-                errorMessage = `Failed to run test case for ${userName}: ${error.message || 'Unknown error'}\n${error.traceback || ''}`;
-            } catch (jsonError) {
-                console.error('Failed to parse error JSON:', jsonError);
-                errorMessage += `\nRaw response: ${responseText}`;
-            }
-            alert(errorMessage);
+            const error = await response.json();
+            alert(`Failed to run test case for ${userName}: ${error.message || 'Unknown error'}`);
         }
     } catch (error) {
         console.error('Error running test case:', error);
-        alert(`Error running test case for ${userName}: ${error.message || 'Unexpected error'}`);
+        alert(`Error running test case for ${userName}: ${error.message}`);
     }
 }
 
