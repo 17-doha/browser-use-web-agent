@@ -72,9 +72,15 @@ def ensure_dirs():
         else:
             print(f"[ERROR] Directory {dir_path} is NOT writable")
 
+# main.py (replace the generate_gif_from_images function)
 def generate_gif_from_images(image_paths, output_path):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     images = []
     target_size = None
+    
+    logger.debug(f"Generating GIF from {len(image_paths)} images to {output_path}")
     
     for img_path in image_paths:
         if os.path.exists(img_path):
@@ -82,13 +88,14 @@ def generate_gif_from_images(image_paths, output_path):
                 img = Image.open(img_path).convert("RGB")
                 if target_size is None:
                     target_size = img.size
+                    logger.debug(f"Set target size to {target_size}")
                 break
             except Exception as e:
-                print(f"[!] Failed to open {img_path}: {e}")
+                logger.error(f"Failed to open {img_path}: {e}")
                 continue
     
     if target_size is None:
-        print("[!] No valid images found to determine target size.")
+        logger.error("No valid images found to determine target size")
         return
     
     for img_path in image_paths:
@@ -97,20 +104,21 @@ def generate_gif_from_images(image_paths, output_path):
                 img = Image.open(img_path).convert("RGB")
                 if img.size != target_size:
                     img = img.resize(target_size, Image.Resampling.LANCZOS)
-                    print(f"[→] Resized {img_path} from original size to {target_size}")
+                    logger.debug(f"Resized {img_path} to {target_size}")
                 images.append(img)
             except Exception as e:
-                print(f"[!] Failed to process {img_path}: {e}")
+                logger.error(f"Failed to process {img_path}: {e}")
                 continue
     
     if len(images) >= 2:
         try:
             imageio.mimsave(output_path, images, fps=1)
-            print(f"[✔] GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")
+            logger.info(f"GIF generated: {output_path} (size: {os.path.getsize(output_path)} bytes)")
         except Exception as e:
-            print(f"[ERROR] Failed to create GIF: {e}")
+            logger.error(f"Failed to create GIF: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
     else:
-        print("[!] Not enough images to create a GIF.")
+        logger.warning(f"Not enough images to create GIF: {len(images)} images found")
 
 class CustomController(Controller):
     def __init__(self, exclude_actions: list[str] = [],

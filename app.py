@@ -667,93 +667,83 @@ def get_test_run_details(run_id):
 
 # --- Test Case Execution Endpoint ---
 # app.py (replace the run_test_case endpoint starting at line ~735)
+# app.py (replace the run_test_case endpoint)
 @app.route('/api/run_test_case', methods=['POST'])
 def run_test_case():
     import traceback
     import logging
-    
+    import sys
+    import os
+    from flask import jsonify
+
     # Set up logging
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
     logger = logging.getLogger(__name__)
     
     try:
-        logger.info("Starting test case execution")
+        logger.debug("Received request to /api/run_test_case")
         
         # Get request data
         data = request.get_json(force=True)
         if not data:
-            logger.error("No JSON data received")
-            return jsonify({'success': False, 'message': 'No data provided'}), 400
+            logger.error("No JSON data received in request")
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
             
         prompt = data.get('prompt', '')
         username = data.get('username', '')
         password = data.get('password', '')
         test_case_id = data.get('test_case_id')
         
-        logger.info(f"Test case ID: {test_case_id}")
-        logger.info(f"Username: {username}")
-        logger.info(f"Prompt length: {len(prompt) if prompt else 0}")
+        logger.info(f"Test case ID: {test_case_id}, Username: {username}, Prompt length: {len(prompt) if prompt else 0}")
         
         if not all([prompt, username, password]):
-            logger.error("Missing required parameters")
+            logger.error("Missing required parameters: prompt, username, or password")
             return jsonify({
-                'success': False, 
+                'success': False,
                 'message': 'Missing required parameters: prompt, username, and password'
             }), 400
         
-        # Debug: Check if browser binary exists
-        import os
-        import glob
-        
-        playwright_cache = "/home/www-data/.cache/ms-playwright"
-        if os.path.exists(playwright_cache):
-            logger.info(f"Playwright cache exists at {playwright_cache}")
-            chrome_paths = glob.glob(f"{playwright_cache}/chromium-*/chrome-linux/chrome")
-            if chrome_paths:
-                logger.info(f"Found Chrome binary at: {chrome_paths[0]}")
-                # Check if it's executable
-                chrome_path = chrome_paths[0]
-                if os.access(chrome_path, os.X_OK):
-                    logger.info("Chrome binary is executable")
+        # Check file system permissions
+        dirs_to_check = [
+            "/opt/defaultsite/app_static/screenshots",
+            "/opt/defaultsite/app_static/gifs",
+            "/opt/defaultsite/app_static/pdfs",
+            "/home/www-data/.cache/ms-playwright",
+            "/opt/defaultsite/user_data"
+        ]
+        for dir_path in dirs_to_check:
+            if os.path.exists(dir_path):
+                if os.access(dir_path, os.W_OK | os.R_OK):
+                    logger.debug(f"Directory {dir_path} exists and is writable")
                 else:
-                    logger.error("Chrome binary is not executable")
+                    logger.error(f"Directory {dir_path} exists but is NOT writable")
             else:
-                logger.error("No Chrome binary found")
-        else:
-            logger.error("Playwright cache directory does not exist")
+                logger.error(f"Directory {dir_path} does NOT exist")
+                os.makedirs(dir_path, exist_ok=True)
+                logger.debug(f"Created directory {dir_path}")
+                if os.access(dir_path, os.W_OK | os.R_OK):
+                    logger.debug(f"Directory {dir_path} is now writable")
+                else:
+                    logger.error(f"Failed to make directory {dir_path} writable")
         
-        # Test browser launch before running main function
-        try:
-            logger.info("Testing browser launch...")
-            from playwright.sync_api import sync_playwright
-            
-            with sync_playwright() as p:
-                logger.info("Playwright started successfully")
-                browser = p.chromium.launch(
-                    headless=True,
-                    args=[
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-gpu',
-                        '--disable-extensions',
-                        '--disable-background-timer-throttling',
-                        '--disable-backgrounding-occluded-windows',
-                        '--disable-renderer-backgrounding',
-                    ]
-                )
-                logger.info("Browser launched successfully")
-                browser.close()
-                logger.info("Browser closed successfully")
-                
-        except Exception as browser_error:
-            logger.error(f"Browser test failed: {str(browser_error)}")
-            logger.error(f"Browser error traceback: {traceback.format_exc()}")
-            return jsonify({
-                'success': False, 
-                'message': f'Browser initialization failed: {str(browser_error)}',
-                'traceback': traceback.format_exc()
-            }), 500
+        # Check Playwright browser binary
+        chrome_paths = glob.glob("/home/www-data/.cache/ms-playwright/chromium-*/chrome-linux/chrome")
+        if chrome_paths:
+            chrome_path = chrome_paths[0]
+            logger.debug(f"Found Chrome binary at: {chrome_path}")
+            if os.access(chrome_path, os.X_OK):
+                logger.debug("Chrome binary is executable")
+            else:
+                logger.error("Chrome binary is NOT executable")
+        else:
+            logger.error("No Chrome binary found in Playwright cache")
         
         # Construct the full prompt
         pre_prompt = f"""You are a browser automation agent.
@@ -777,31 +767,42 @@ def run_test_case():
 """
         final_prompt = f"{pre_prompt} {prompt}"
         
-        # Now run the actual test case
-        logger.info("Running main test case function...")
+        # Run the test case
+        logger.debug("Executing run_prompt...")
         result = run_prompt(final_prompt, username, password, test_case_id)
         
-        logger.info(f"Test case completed successfully: {result}")
+        logger.info(f"Test case execution result: {result}")
         
-        # Ensure the response is properly structured
+        # Structure the response
         response = {
             'success': True,
             'test_status': result.get('status', 'unknown'),
             'result': result.get('text', 'No text result returned.'),
             'test_case_id': test_case_id
         }
-        if result.get('gif_path'):
-            response['gif_url'] = f"/app_static/gifs/{os.path.basename(result['gif_path'])}"
-        if result.get('pdf_path'):
-            response['pdf_url'] = f"/app_static/pdfs/{os.path.basename(result['pdf_path'])}"
+        gif_path = result.get('gif_path')
+        pdf_path = result.get('pdf_path')
         
+        if gif_path and os.path.exists(gif_path):
+            response['gif_url'] = f"/app_static/gifs/{os.path.basename(gif_path)}"
+            logger.debug(f"GIF included in response: {response['gif_url']}")
+        else:
+            logger.warning(f"GIF path {gif_path} does not exist or was not generated")
+            response['gif_url'] = None
+            
+        if pdf_path and os.path.exists(pdf_path):
+            response['pdf_url'] = f"/app_static/pdfs/{os.path.basename(pdf_path)}"
+            logger.debug(f"PDF included in response: {response['pdf_url']}")
+        else:
+            logger.warning(f"PDF path {pdf_path} does not exist or was not generated")
+            response['pdf_url'] = None
+        
+        logger.debug(f"Final response to be sent: {response}")
         return jsonify(response), 200
         
     except Exception as e:
         logger.error(f"Error in run_test_case: {str(e)}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
-        
-        # Return a proper JSON error response
         return jsonify({
             'success': False,
             'message': f'Error running test case: {str(e)}',
