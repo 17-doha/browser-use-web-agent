@@ -666,6 +666,7 @@ def get_test_run_details(run_id):
             session.close()
 
 # --- Test Case Execution Endpoint ---
+# app.py (replace the run_test_case endpoint starting at line ~735)
 @app.route('/api/run_test_case', methods=['POST'])
 def run_test_case():
     import traceback
@@ -679,7 +680,7 @@ def run_test_case():
         logger.info("Starting test case execution")
         
         # Get request data
-        data = request.get_json()
+        data = request.get_json(force=True)
         if not data:
             logger.error("No JSON data received")
             return jsonify({'success': False, 'message': 'No data provided'}), 400
@@ -750,15 +751,51 @@ def run_test_case():
             logger.error(f"Browser error traceback: {traceback.format_exc()}")
             return jsonify({
                 'success': False, 
-                'message': f'Browser initialization failed: {str(browser_error)}'
+                'message': f'Browser initialization failed: {str(browser_error)}',
+                'traceback': traceback.format_exc()
             }), 500
+        
+        # Construct the full prompt
+        pre_prompt = f"""You are a browser automation agent.
+
+1. Navigate to the login page: https://testing.praxilabs-lms.com
+
+2. Wait for the login form to fully load. Use the following exact CSS selectors to locate the form fields:
+   - Email input: input[type="email"]
+   - Password input: input[type="password"]
+   - Login button: button[type="submit"], or a button containing "Login"
+
+3. Log in using:
+   - Email: {username}
+   - Password: {password}
+
+4. Verify login was successful by checking for a visible "Courses" tab.
+
+5. If login fails, retry once.
+
+6. After successful login:
+"""
+        final_prompt = f"{pre_prompt} {prompt}"
         
         # Now run the actual test case
         logger.info("Running main test case function...")
-        result = run_prompt(prompt, username, password, test_case_id)
+        result = run_prompt(final_prompt, username, password, test_case_id)
         
         logger.info(f"Test case completed successfully: {result}")
-        return jsonify(result)
+        
+        # Ensure the response is properly structured
+        response = {
+            'success': True,
+            'test_status': result.get('status', 'unknown'),
+            'result': result.get('text', 'No text result returned.'),
+            'test_case_id': test_case_id
+        }
+        if result.get('gif_path'):
+            response['gif_url'] = f"/app_static/gifs/{os.path.basename(result['gif_path'])}"
+        if result.get('pdf_path'):
+            response['pdf_url'] = f"/app_static/pdfs/{os.path.basename(result['pdf_path'])}"
+        
+        return jsonify(response), 200
         
     except Exception as e:
         logger.error(f"Error in run_test_case: {str(e)}")
@@ -767,7 +804,7 @@ def run_test_case():
         # Return a proper JSON error response
         return jsonify({
             'success': False,
-            'message': str(e),
+            'message': f'Error running test case: {str(e)}',
             'traceback': traceback.format_exc()
         }), 500
 # --- Original LLM Endpoints ---

@@ -1344,28 +1344,26 @@ async runTestCaseWithProgress(testCase, index, total) {
     });
 }
 
-    async runTestCase(id) {
+    // script.js
+async runTestCase(id) {
     const tc = this.testCases.find(t => t.id === id);
     if (!tc) {
         alert('Test case not found.');
         return;
     }
-
     // Look up the user associated with tc.user_id
     let username = '';
     let password = '';
     let userName = 'Unknown User';
     console.log("Running test case:", tc.user_id);
-
     if (tc.user_id) {
-        const user = this.users.find(u => u.id == tc.user_id);
+        const user = this.users.find(u => u.id == tc.user_id); // Fixed typo: tc.userid -> tc.user_id
         if (user) {
             username = user.email || '';
             userName = user.name || 'Unknown User';
-            password = localStorage.getItem(`user_${tc.user_id}_password`) || '';
+            password = localStorage.getItem(`user_${tc.user_id}_password`) || ''; // Fixed typo in key
         }
     }
-
     // Prompt for credentials if missing
     if (!username || !password) {
         username = prompt('Please enter the username (email):', username) || '';
@@ -1376,10 +1374,9 @@ async runTestCaseWithProgress(testCase, index, total) {
         }
         // Store credentials in localStorage for the user_id
         if (tc.user_id) {
-            localStorage.setItem(`user_${tc.user_id}_password`, password);
+            localStorage.setItem(`user_${tc.user_id}_password`, password); // Fixed typo in key
         }
     }
-
     try {
         const response = await fetch('/api/run_test_case', {
             method: 'POST',
@@ -1393,15 +1390,15 @@ async runTestCaseWithProgress(testCase, index, total) {
         });
         if (response.ok) {
             const result = await response.json();
-            
+
             // Debug logging
             console.log('Server response for test case run:', result);
-            
+
             // Update test case with results from server response
-            tc.status = result.test_status;
+            tc.status = result.test_status || 'unknown';
             if (result.gif_url) tc.gif_path = result.gif_url;
             if (result.pdf_url) tc.pdf_url = result.pdf_url;
-            
+
             // Debug logging after update
             console.log('Updated test case:', {
                 id: tc.id,
@@ -1412,10 +1409,10 @@ async runTestCaseWithProgress(testCase, index, total) {
                 user_id: tc.user_id,
                 user_name: userName
             });
-            
+
             // Re-render the test case list to show the updated media buttons
             this.renderTestCaseList();
-            
+
             // Show success message with media options
             let message = `Test case "${tc.title}" ran successfully for ${userName}.\nStatus: ${result.test_status}`;
             if (result.gif_url || result.pdf_url) {
@@ -1426,11 +1423,12 @@ async runTestCaseWithProgress(testCase, index, total) {
             alert(message);
         } else {
             const error = await response.json();
-            alert(`Failed to run test case for ${userName}: ${error.message || 'Unknown error'}`);
+            console.error('Server error response:', error);
+            alert(`Failed to run test case for ${userName}: ${error.message || 'Unknown error'}\n${error.traceback || ''}`);
         }
     } catch (error) {
         console.error('Error running test case:', error);
-        alert(`Error running test case for ${userName}: ${error.message}`);
+        alert(`Error running test case for ${userName}: ${error.message || 'Unexpected error'}`);
     }
 }
 

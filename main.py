@@ -1,3 +1,4 @@
+# main.py
 import asyncio
 import os
 from datetime import datetime
@@ -8,7 +9,7 @@ from browser_use import Agent, BrowserSession, Controller
 from browser_use.llm import ChatGoogle
 from playwright.async_api import async_playwright
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import json
 from langchain_core.language_models import BaseChatModel
 from utils.mcp_client import create_tool_param_model, setup_mcp_client_and_tools
@@ -31,7 +32,6 @@ from browser_use.controller.views import (
     SwitchTabAction,
 )
 from fpdf import FPDF
-
 
 logger = logging.getLogger(__name__)
 Context = TypeVar("Context")
@@ -58,12 +58,19 @@ class TestResult(BaseModel):
     status: str = Field(description="Status: success or fail")
 
 def ensure_dirs():
-    os.makedirs("app_static/screenshots", exist_ok=True)
-    print("[DEBUG] Created/ensured app_static/screenshots directory")
-    os.makedirs("app_static/gifs", exist_ok=True)
-    print("[DEBUG] Created/ensured app_static/gifs directory")
-    os.makedirs("app_static/pdfs", exist_ok=True)
-    print("[DEBUG] Created/ensured app_static/pdfs directory")
+    dirs = [
+        "app_static/screenshots",
+        "app_static/gifs",
+        "app_static/pdfs"
+    ]
+    for dir_path in dirs:
+        os.makedirs(dir_path, exist_ok=True)
+        print(f"[DEBUG] Created/ensured directory: {dir_path}")
+        # Check permissions
+        if os.access(dir_path, os.W_OK):
+            print(f"[DEBUG] Directory {dir_path} is writable")
+        else:
+            print(f"[ERROR] Directory {dir_path} is NOT writable")
 
 def generate_gif_from_images(image_paths, output_path):
     images = []
@@ -207,8 +214,8 @@ class CustomController(Controller):
                             tab_index = getattr(params, "index", None)
                         if action_name == "open_tab" and hasattr(browser_session, "get_tab_count"):
                             try:
-                                tab_count = await browser_session.get_tab_count()
-                                tab_index = tab_count - 1
+                                tab_index = await browser_session.get_tab_count()
+                                tab_index = tab_index - 1
                             except Exception:
                                 tab_index = None
                         if tab_index is not None and hasattr(browser_session, "switch_to_tab"):
@@ -255,14 +262,16 @@ class CustomController(Controller):
         if self.mcp_client:
             await self.mcp_client.__aexit__(None, None, None)
 
-async def run_agent_task(prompt: str):
+async def run_agent_task(prompt: str, username: Optional[str] = None, password: Optional[str] = None, test_case_id: Optional[int] = None):
     ensure_dirs()
 
+    # Use test_case_id in file naming if provided
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    screenshot_dir = os.path.join("app_static/screenshots", f"run_{timestamp}")
+    unique_id = f"testcase_{test_case_id}_{timestamp}" if test_case_id else f"run_{timestamp}"
+    screenshot_dir = os.path.join("app_static/screenshots", unique_id)
     os.makedirs(screenshot_dir, exist_ok=True)
-    gif_path = f"app_static/gifs/test_{timestamp}.gif"
-    pdf_path = f"app_static/pdfs/test_{timestamp}.pdf"
+    gif_path = f"app_static/gifs/{unique_id}.gif"
+    pdf_path = f"app_static/pdfs/{unique_id}.pdf"
     screenshots = []
 
     stop_capture_flag = [False]
@@ -287,12 +296,12 @@ async def run_agent_task(prompt: str):
                 user_data_dir="user_data",  
                 headless=True,            
                 args=[
-        '--no-sandbox',
-        '--disable-setuid-sandbox', 
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-extensions'
-    ]
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox', 
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-extensions'
+                ]
             )
             print("[DEBUG] Persistent browser launched successfully")
         except Exception as e:
@@ -322,12 +331,16 @@ async def run_agent_task(prompt: str):
         if mcp_server_config:
             await controller.setup_mcp_client(mcp_server_config)
 
+        # Pass sensitive data (username and password) to the controller
+        sensitive_data = {"username": username, "password": password} if username and password else None
+
         agent = Agent(
             task=prompt,
             llm=ChatGoogle(model="gemini-2.0-flash", api_key=os.getenv("GOOGLE_API_KEY")),
             browser_session=browser_session,
             controller=controller,
-            max_steps=100
+            max_steps=100,
+            sensitive_data=sensitive_data  # Pass sensitive data if available
         )
 
         try:
@@ -344,7 +357,7 @@ async def run_agent_task(prompt: str):
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=12)
-            pdf.cell(200, 10, txt="Test Case Report", ln=True, align='C')
+            pdf.cell(200, 10, txt=f"Test Case Report (ID: {test_case_id})" if test_case_id else "Test Case Report", ln=True, align='C')
             pdf.cell(200, 10, txt="Steps:", ln=True)
             for idx, step in enumerate(structured_result.steps):
                 step_data = f"Step {idx+1}: Action - {step.action}, Description - {step.description}"
@@ -373,8 +386,9 @@ async def run_agent_task(prompt: str):
         "pdf_path": pdf_path if os.path.exists(pdf_path) else None,
         "status": status,
         "screenshots": screenshots,
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        "test_case_id": test_case_id
     }
 
-def run_prompt(prompt: str):
-    return asyncio.run(run_agent_task(prompt))
+def run_prompt(prompt: str, username: Optional[str] = None, password: Optional[str] = None, test_case_id: Optional[int] = None):
+    return asyncio.run(run_agent_task(prompt, username, password, test_case_id))
