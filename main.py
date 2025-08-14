@@ -286,7 +286,13 @@ async def run_agent_task(prompt: str):
             browser = await playwright.chromium.launch_persistent_context(
                 user_data_dir="user_data",  
                 headless=True,            
-                args=["--start-maximized"]
+                args=[
+        '--no-sandbox',
+        '--disable-setuid-sandbox', 
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-extensions'
+    ]
             )
             print("[DEBUG] Persistent browser launched successfully")
         except Exception as e:

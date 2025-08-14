@@ -668,64 +668,108 @@ def get_test_run_details(run_id):
 # --- Test Case Execution Endpoint ---
 @app.route('/api/run_test_case', methods=['POST'])
 def run_test_case():
+    import traceback
+    import logging
+    
+    # Set up logging
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
+    
     try:
-        db = SessionLocal()
-        payload = request.get_json()
-        prompt = payload.get('prompt')
-        username = payload.get('username')
-        password = payload.get('password')
-        test_case_id = payload.get('test_case_id')
-
-        if not all([prompt, username, password]):
-            return jsonify({"status": "error", "message": "Missing required fields"}), 400
-
-        pre_prompt = f"""You are a browser automation agent.
-
-1. Navigate to the login page: https://testing.praxilabs-lms.com
-
-2. Wait for the login form to fully load. Use the following exact CSS selectors to locate the form fields:
-   - Email input: input[type="email"]
-   - Password input: input[type="password"]
-   - Login button: button[type="submit"], or a button containing "Login"
-
-3. Log in using:
-   - Email: {username}
-   - Password: {password}
-
-4. Verify login was successful by checking for a visible "Courses" tab.
-
-5. If login fails, retry once.
-
-6. After successful login:
-"""
-        final_prompt = f"{pre_prompt} {prompt}"
-
-        result = run_prompt(final_prompt)
-        response = {
-            "status": "success",
-            "result": result.get("text", "No text result returned."),
-            "test_status": result.get("status", "completed")
-        }
-        if result.get("gif_path"):
-            response["gif_url"] = "/app_static/gifs/" + result["gif_path"].split("/")[-1]
-        if result.get("pdf_path"):
-            response["pdf_url"] = "/app_static/pdfs/" + result["pdf_path"].split("/")[-1]
-
-        # Update test case status and media paths if ID is provided
-        if test_case_id:
-            update_data = {"status": result.get("status", "completed")}
-            if result.get("gif_path"):
-                update_data["gif_path"] = "/app_static/gifs/" + result["gif_path"].split("/")[-1]
-            if result.get("pdf_path"):
-                update_data["pdf_url"] = "/app_static/pdfs/" + result["pdf_path"].split("/")[-1]
+        logger.info("Starting test case execution")
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            logger.error("No JSON data received")
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
             
-            db.query(TestCase).filter(TestCase.id == test_case_id).update(update_data)
-            db.commit()
-
-        return jsonify(response)
+        prompt = data.get('prompt', '')
+        username = data.get('username', '')
+        password = data.get('password', '')
+        test_case_id = data.get('test_case_id')
+        
+        logger.info(f"Test case ID: {test_case_id}")
+        logger.info(f"Username: {username}")
+        logger.info(f"Prompt length: {len(prompt) if prompt else 0}")
+        
+        if not all([prompt, username, password]):
+            logger.error("Missing required parameters")
+            return jsonify({
+                'success': False, 
+                'message': 'Missing required parameters: prompt, username, and password'
+            }), 400
+        
+        # Debug: Check if browser binary exists
+        import os
+        import glob
+        
+        playwright_cache = "/home/www-data/.cache/ms-playwright"
+        if os.path.exists(playwright_cache):
+            logger.info(f"Playwright cache exists at {playwright_cache}")
+            chrome_paths = glob.glob(f"{playwright_cache}/chromium-*/chrome-linux/chrome")
+            if chrome_paths:
+                logger.info(f"Found Chrome binary at: {chrome_paths[0]}")
+                # Check if it's executable
+                chrome_path = chrome_paths[0]
+                if os.access(chrome_path, os.X_OK):
+                    logger.info("Chrome binary is executable")
+                else:
+                    logger.error("Chrome binary is not executable")
+            else:
+                logger.error("No Chrome binary found")
+        else:
+            logger.error("Playwright cache directory does not exist")
+        
+        # Test browser launch before running main function
+        try:
+            logger.info("Testing browser launch...")
+            from playwright.sync_api import sync_playwright
+            
+            with sync_playwright() as p:
+                logger.info("Playwright started successfully")
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--disable-extensions',
+                        '--disable-background-timer-throttling',
+                        '--disable-backgrounding-occluded-windows',
+                        '--disable-renderer-backgrounding',
+                    ]
+                )
+                logger.info("Browser launched successfully")
+                browser.close()
+                logger.info("Browser closed successfully")
+                
+        except Exception as browser_error:
+            logger.error(f"Browser test failed: {str(browser_error)}")
+            logger.error(f"Browser error traceback: {traceback.format_exc()}")
+            return jsonify({
+                'success': False, 
+                'message': f'Browser initialization failed: {str(browser_error)}'
+            }), 500
+        
+        # Now run the actual test case
+        logger.info("Running main test case function...")
+        result = run_prompt(prompt, username, password, test_case_id)
+        
+        logger.info(f"Test case completed successfully: {result}")
+        return jsonify(result)
+        
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
+        logger.error(f"Error in run_test_case: {str(e)}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
+        # Return a proper JSON error response
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 # --- Original LLM Endpoints ---
 @app.route("/generate-action-json", methods=["POST"])
 def generate_action_json_route():

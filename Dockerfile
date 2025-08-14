@@ -31,9 +31,14 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     xvfb \
-    # Additional fonts that might be needed
+    # Additional fonts and dependencies
     fonts-dejavu-core \
     fonts-freefont-ttf \
+    libgbm1 \
+    libxcursor1 \
+    libxi6 \
+    libxrender1 \
+    libxkbcommon0 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -77,11 +82,12 @@ RUN chown -R www-data:www-data /opt/defaultsite
 # Switch to www-data user
 USER www-data
 
-# Install Playwright browsers (without system dependencies to avoid the font issue)
+# Install Playwright browsers
 RUN playwright install chromium
 
-# Try to verify browser installation (don't fail build if this doesn't work)
-RUN python -c "from playwright.async_api import async_playwright; import asyncio; async def check(): ap = async_playwright(); await ap.__aenter__(); browser = await ap.chromium.launch(); await browser.close(); await ap.__aexit__(None, None, None); asyncio.run(check())" || echo "Browser verification failed, but continuing..."
+# Debug: Check if browser was installed correctly
+RUN find /home/www-data/.cache/ms-playwright -name "chrome" -type f 2>/dev/null | head -5 || echo "No chrome binary found"
+RUN ls -la /home/www-data/.cache/ms-playwright/ || echo "Playwright cache directory empty"
 
 # Expose port
 ENV PORT=8080
@@ -96,10 +102,15 @@ ENV PGCLIENTENCODING=utf8
 # Override browser-use config directory to writable location
 ENV XDG_CONFIG_HOME=/home/www-data/.config
 ENV BROWSER_USE_CONFIG_DIR=/home/www-data/.config/browseruse
+# Additional Playwright environment variables for Docker
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
+ENV DISPLAY=:99
+# Disable sandboxing for Chromium in Docker
+ENV PLAYWRIGHT_CHROMIUM_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage"
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/', timeout=5)" || exit 1
 
-# Run the application with gunicorn
-ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "600", "--access-logfile", "-", "--error-logfile", "-", "--chdir", "/opt/defaultsite", "app:app"]
+# Run the application with gunicorn and more verbose logging
+ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "600", "--access-logfile", "-", "--error-logfile", "-", "--log-level", "debug", "--chdir", "/opt/defaultsite", "app:app"]
