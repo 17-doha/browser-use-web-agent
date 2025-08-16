@@ -300,10 +300,10 @@ async def run_agent_task(prompt: str):
             frame = 0
             while not stop_capture_flag[0]:
                 try:
-                    screenshot_path = os.path.join(screenshot_dir, f"frame_{frame}.png")
-                    await page.screenshot(path=screenshot_path)
-                    screenshots.append(screenshot_path)
-                    print(f"[+] Captured screenshot: {screenshot_path} (total: {len(screenshots)})")
+                    # screenshot_path = os.path.join(screenshot_dir, f"frame_{frame}.png")
+                    # await page.screenshot(path=screenshot_path)
+                    # screenshots.append(screenshot_path)
+                    # print(f"[+] Captured screenshot: {screenshot_path} (total: {len(screenshots)})")
                     frame += 1
                 except Exception as e:
                     print(f"[ERROR] Failed to capture screenshot: {e}")
@@ -356,7 +356,7 @@ async def run_agent_task(prompt: str):
             if mcp_server_config:
                 await controller.close_mcp_client()
 
-    generate_gif_from_images(screenshots, gif_path)
+    # generate_gif_from_images(screenshots, gif_path)
 
     print(f"[DEBUG] GIF exists: {os.path.exists(gif_path)} (path: {gif_path})")
     print(f"[DEBUG] PDF exists: {os.path.exists(pdf_path)} (path: {pdf_path})")
