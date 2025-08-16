@@ -284,7 +284,6 @@ async def run_agent_task(prompt: str):
         try:
             print("[DEBUG] Starting persistent browser launch...")
             browser = await playwright.chromium.launch_persistent_context(
-                user_data_dir="user_data",  
                 headless=True,            
                 args=["--start-maximized"]
             )
